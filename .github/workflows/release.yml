@@ -40,26 +40,85 @@ jobs:
           chmod +x scripts/create_deb.sh
           TARGET_ARCH=${{ matrix.arch }} ./scripts/create_deb.sh
 
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb-${{ matrix.arch }}
+          path: lapcounter_*.deb
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: deb-*
+          merge-multiple: true
+
       - name: Create Release
-        id: create_release
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
             lapcounter_*.deb
           generate_release_notes: true
-          draft: false
-          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update APT Repository
-        uses: petersandor/apt-repo-action@v1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          repo_name: 'lap_counter'
-          file: 'lapcounter_*.deb'
-          branch: 'gh-pages'
-          dist: 'stable'
-          component: 'main'
-          arch: ${{ matrix.arch }}
+        run: |
+          sudo apt-get update && sudo apt-get install -y dpkg-dev
+          
+          # Setup Git
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          
+          # Switch to or create gh-pages branch
+          git fetch origin
+          if git rev-parse --verify origin/gh-pages >/dev/null 2>&1; then
+            git checkout gh-pages
+          else
+            git checkout --orphan gh-pages
+            git rm -rf .
+          fi
+
+          # Organize files
+          mkdir -p pool/main
+          mkdir -p dists/stable/main/binary-amd64
+          mkdir -p dists/stable/main/binary-arm64
+          
+          # Move debs from artifacts into the pool
+          cp $GITHUB_WORKSPACE/lapcounter_*.deb pool/main/
+
+          # Generate Packages metadata
+          dpkg-scanpackages --arch amd64 pool/main > dists/stable/main/binary-amd64/Packages
+          gzip -9c dists/stable/main/binary-amd64/Packages > dists/stable/main/binary-amd64/Packages.gz
+
+          dpkg-scanpackages --arch arm64 pool/main > dists/stable/main/binary-arm64/Packages
+          gzip -9c dists/stable/main/binary-arm64/Packages > dists/stable/main/binary-arm64/Packages.gz
+
+          # Generate Release file
+          cat <<EOF > dists/stable/Release
+          Origin: LapCounter Pro
+          Label: LapCounter Pro
+          Suite: stable
+          Codename: stable
+          Architectures: amd64 arm64
+          Components: main
+          Description: ArUco Tag Lap Counter Repository
+          EOF
+
+          # Commit and Push
+          git add .
+          git commit -m "Update APT repository for ${{ github.ref_name }}"
+          git push origin gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
