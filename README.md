@@ -32,7 +32,7 @@ You can install Lap Counter Pro directly via our APT repository. This will set u
 
 ```bash
 # Add the repository
-echo "deb [trusted=yes] https://droidbuilders-uk.github.io/lap_counter/ stable main" | sudo tee /etc/apt/sources.list.d/lapcounter.list
+echo "deb [trusted=yes arch=amd64,arm64] https://droidbuilders-uk.github.io/lap_counter/ stable main" | sudo tee /etc/apt/sources.list.d/lapcounter.list
 
 # Install the application
 sudo apt update

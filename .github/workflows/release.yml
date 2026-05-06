@@ -75,7 +75,7 @@ jobs:
 
       - name: Update APT Repository
         run: |
-          sudo apt-get update && sudo apt-get install -y dpkg-dev
+          sudo apt-get update && sudo apt-get install -y dpkg-dev apt-utils
           
           # Setup Git
           git config --global user.name "github-actions"
@@ -106,15 +106,17 @@ jobs:
           gzip -9c dists/stable/main/binary-arm64/Packages > dists/stable/main/binary-arm64/Packages.gz
 
           # Generate Release file
-          cat <<EOF > dists/stable/Release
-          Origin: LapCounter Pro
-          Label: LapCounter Pro
-          Suite: stable
-          Codename: stable
-          Architectures: amd64 arm64
-          Components: main
-          Description: ArUco Tag Lap Counter Repository
-          EOF
+          cat <<EOF > apt-release.conf
+APT::FTPArchive::Release::Origin "LapCounter Pro";
+APT::FTPArchive::Release::Label "LapCounter Pro";
+APT::FTPArchive::Release::Suite "stable";
+APT::FTPArchive::Release::Codename "stable";
+APT::FTPArchive::Release::Architectures "amd64 arm64";
+APT::FTPArchive::Release::Components "main";
+APT::FTPArchive::Release::Description "ArUco Tag Lap Counter Repository";
+EOF
+          apt-ftparchive -c apt-release.conf release dists/stable > dists/stable/Release
+          rm apt-release.conf
 
           # Commit and Push
           git add .
