@@ -24,3 +24,4 @@ frontend/dist-ssr
 .DS_Store
 
 *.deb
+build/
