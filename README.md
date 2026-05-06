@@ -26,19 +26,35 @@ Built with **FastAPI**, **OpenCV**, and **React**, this system enables multi-dro
 *   USB Web Camera or Raspberry Pi Camera Module
 
 ## Installation
-
-### 1. Backend Setup
+ 
+### 1. Linux (Recommended)
+You can install Lap Counter Pro directly via our APT repository. This will set up the application as a system service that starts automatically on boot.
 
 ```bash
-# Create a virtual environment
-python3 -m venv .venv
-source .venv/bin/activate
+# Add the repository (replace [USER] with your GitHub username)
+echo "deb [trusted=yes] https://[USER].github.io/lap_counter/ stable main" | sudo tee /etc/apt/sources.list.d/lapcounter.list
 
-# Install dependencies
-pip install fastapi uvicorn sqlalchemy opencv-contrib-python numpy
+# Install the application
+sudo apt update
+sudo apt install lapcounter
+
+# Manage the service
+sudo systemctl start lapcounter
+sudo systemctl status lapcounter
 ```
 
-### 2. Frontend Setup
+### 2. Manual / Development Setup
+If you want to run the application in development mode:
+
+#### Backend Setup
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn backend.main:app --reload
+```
+
+#### Frontend Setup
 
 ```bash
 cd frontend

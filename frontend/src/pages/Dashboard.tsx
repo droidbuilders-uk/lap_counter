@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Camera, Radio, Timer, Trophy, Activity, AlertCircle } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 interface Droid {
   id: number;
@@ -24,6 +25,7 @@ interface ActiveRaceData {
 }
 
 export default function Dashboard() {
+  const { labels } = useTheme();
   const [activeData, setActiveData] = useState<ActiveRaceData | null>(null);
   const [wsStatus, setWsStatus] = useState('connecting');
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
@@ -186,7 +188,7 @@ export default function Dashboard() {
               <thead>
                 <tr className="bg-slate-950/50 text-slate-400 text-sm uppercase tracking-wider">
                   <th className="px-6 py-4 font-medium">Pos</th>
-                  <th className="px-6 py-4 font-medium">Driver</th>
+                  <th className="px-6 py-4 font-medium">{labels.competitor}</th>
                   <th className="px-6 py-4 font-medium text-center">Laps</th>
                   <th className="px-6 py-4 font-medium text-right">Best Lap</th>
                   <th className="px-6 py-4 font-medium text-right">Last Lap</th>
@@ -250,7 +252,7 @@ export default function Dashboard() {
             <div className="mt-4 p-3 bg-slate-950 rounded-lg border border-slate-800 flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
               <p className="text-xs text-slate-400 leading-relaxed">
-                Ensure the finish line is well lit. The camera is running at 30 FPS with hardware exposure locked.
+                Ensure the finish line is well lit. The camera is running at 30 FPS. Detection is based on {labels.tag} IDs.
               </p>
             </div>
           </div>

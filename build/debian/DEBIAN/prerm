@@ -1,0 +1,5 @@
+#!/bin/bash
+set -e
+echo "Stopping lapcounter service..."
+systemctl stop lapcounter || true
+systemctl disable lapcounter || true

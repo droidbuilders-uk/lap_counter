@@ -1,14 +1,16 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Plus, Bot, Hash, Edit2, Trash2, X, Save } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useTheme } from '../context/ThemeContext';
+import { Plus, Bot, Hash, Edit2, Trash2, X, Save, Trophy } from 'lucide-react';
 
 interface Droid {
   id: number;
-  name: str;
+  name: string;
   aruco_id: number;
   color_hex: string;
 }
 
 export default function Droids() {
+  const { labels, theme } = useTheme();
   const [droids, setDroids] = useState<Droid[]>([]);
   const [name, setName] = useState('');
   const [arucoId, setArucoId] = useState('');
@@ -105,10 +107,10 @@ export default function Droids() {
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-white flex items-center gap-3">
-          <Bot className="w-8 h-8 text-blue-500" />
-          Droid Garage
+          {theme === 'droid' ? <Bot className="w-8 h-8 text-blue-500" /> : <Trophy className="w-8 h-8 text-blue-500" />}
+          {labels.garage}
         </h1>
-        <p className="text-slate-400 mt-2">Register new racing droids and assign their ArUco tags.</p>
+        <p className="text-slate-400 mt-2">Register new {labels.competitors.toLowerCase()} and assign their {labels.tag}s.</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -210,7 +212,7 @@ export default function Droids() {
                   </div>
                   <div>
                     <h3 className="font-semibold text-lg">{droid.name}</h3>
-                    <p className="text-slate-500 text-sm">ArUco Tag: {droid.aruco_id}</p>
+                    <p className="text-slate-500 text-sm">{labels.tag}: {droid.aruco_id}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">

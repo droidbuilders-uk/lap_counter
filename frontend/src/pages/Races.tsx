@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Flag, Play, Square, Trophy, Clock, Timer, ChevronRight } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
+import { Flag, Play, Square, Trophy, Clock, Timer, ChevronRight, Repeat } from 'lucide-react';
 
 interface Droid {
   id: number;
@@ -20,6 +21,7 @@ interface Race {
 }
 
 export default function Races() {
+  const { labels } = useTheme();
   const [droids, setDroids] = useState<Droid[]>([]);
   const [races, setRaces] = useState<Race[]>([]);
   
@@ -47,7 +49,7 @@ export default function Races() {
 
   const handleCreateRace = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (selectedDroids.length === 0) return alert("Select at least one droid!");
+    if (selectedDroids.length === 0) return alert(`Select at least one ${labels.competitor.toLowerCase()}!`);
     
     await fetch('/api/races', {
       method: 'POST',
@@ -73,6 +75,13 @@ export default function Races() {
 
   const stopRace = async (id: number) => {
     await fetch(`/api/races/${id}/stop`, { method: 'POST' });
+    fetchRaces();
+  };
+
+  const repeatRace = async (e: React.MouseEvent, id: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    await fetch(`/api/races/${id}/repeat`, { method: 'POST' });
     fetchRaces();
   };
 
@@ -142,7 +151,7 @@ export default function Races() {
             </div>
 
             <div className="pt-2">
-              <label className="block text-sm font-medium text-slate-400 mb-3">Select Grid (Competitors)</label>
+              <label className="block text-sm font-medium text-slate-400 mb-3">Select Grid ({labels.competitors})</label>
               <div className={`max-h-48 overflow-y-auto pr-2 custom-scrollbar ${droids.length >= 10 ? 'grid grid-cols-2 gap-2' : 'flex flex-col gap-2'}`}>
                 {droids.map(droid => (
                   <label key={droid.id} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${selectedDroids.includes(droid.id) ? 'bg-blue-900/20 border-blue-500/50' : 'bg-slate-950 border-slate-800 hover:border-slate-700'}`}>
@@ -159,7 +168,7 @@ export default function Races() {
                     <span className="font-medium">{droid.name}</span>
                   </label>
                 ))}
-                {droids.length === 0 && <p className="text-sm text-slate-500 italic">No droids available. Register them first.</p>}
+                {droids.length === 0 && <p className="text-sm text-slate-500 italic">No {labels.competitors.toLowerCase()} available. Register them in the {labels.garage}.</p>}
               </div>
             </div>
             
@@ -176,11 +185,10 @@ export default function Races() {
         <div className="col-span-1 lg:col-span-2 space-y-4">
           {races.map(race => {
             const isFinished = race.status === 'finished';
-            const CardWrapper = isFinished ? Link : 'div';
-            const wrapperProps = isFinished ? { to: `/races/${race.id}` } : {};
+            const cardClass = `bg-slate-900 border rounded-xl p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 transition-all ${race.status === 'active' ? 'border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.15)] ring-1 ring-red-500/20' : isFinished ? 'border-slate-800 hover:border-slate-600 hover:bg-slate-800/50 cursor-pointer group' : 'border-slate-800'}`;
             
-            return (
-              <CardWrapper key={race.id} {...wrapperProps} className={`bg-slate-900 border rounded-xl p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 transition-all ${race.status === 'active' ? 'border-red-500/50 shadow-[0_0_15px_rgba(239,68,68,0.15)] ring-1 ring-red-500/20' : isFinished ? 'border-slate-800 hover:border-slate-600 hover:bg-slate-800/50 cursor-pointer group' : 'border-slate-800'}`}>
+            const cardContent = (
+              <>
                 <div>
                   <div className="flex items-center gap-3 mb-1">
                     <h3 className={`font-bold text-lg ${isFinished ? 'group-hover:text-blue-400 transition-colors' : 'text-white'}`}>{race.name}</h3>
@@ -210,20 +218,39 @@ export default function Races() {
                 
                 <div className="flex w-full sm:w-auto gap-3 items-center">
                   {race.status === 'pending' && (
-                    <button onClick={() => startRace(race.id)} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 px-4 py-2 rounded-lg font-medium transition-colors">
+                    <button onClick={(e) => { e.preventDefault(); startRace(race.id); }} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 px-4 py-2 rounded-lg font-medium transition-colors">
                       <Play className="w-4 h-4 fill-current" /> Start
                     </button>
                   )}
                   {race.status === 'active' && (
-                    <button onClick={() => stopRace(race.id)} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/50 px-4 py-2 rounded-lg font-medium transition-colors">
+                    <button onClick={(e) => { e.preventDefault(); stopRace(race.id); }} className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/50 px-4 py-2 rounded-lg font-medium transition-colors">
                       <Square className="w-4 h-4 fill-current" /> Stop
                     </button>
                   )}
                   {race.status === 'finished' && (
-                    <ChevronRight className="w-5 h-5 text-slate-500 group-hover:text-blue-400 transition-colors" />
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={(e) => repeatRace(e, race.id)} 
+                        title="Repeat Race"
+                        className="p-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/50 rounded-lg transition-colors"
+                      >
+                        <Repeat className="w-4 h-4" />
+                      </button>
+                      <ChevronRight className="w-5 h-5 text-slate-500 group-hover:text-blue-400 transition-colors self-center" />
+                    </div>
                   )}
                 </div>
-              </CardWrapper>
+              </>
+            );
+
+            return isFinished ? (
+              <Link key={race.id} to={`/races/${race.id}`} className={cardClass}>
+                {cardContent}
+              </Link>
+            ) : (
+              <div key={race.id} className={cardClass}>
+                {cardContent}
+              </div>
             );
           })}
           

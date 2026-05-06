@@ -1,9 +1,15 @@
 import { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, Save, Monitor, ArrowDownUp, AlertTriangle } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
+import { Settings as SettingsIcon, Save, Monitor, ArrowDownUp, AlertTriangle, Camera, Cpu, Flag } from 'lucide-react';
 
 export default function Settings() {
+  const { setTheme: updateTheme } = useTheme();
   const [lapDirection, setLapDirection] = useState('down');
   const [debugOverlays, setDebugOverlays] = useState('true');
+  const [cameraIndex, setCameraIndex] = useState('0');
+  const [theme, setTheme] = useState('droid');
+  const [arucoDict, setArucoDict] = useState('DICT_4X4_50');
+  const [cameras, setCameras] = useState<any[]>([]);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
@@ -12,8 +18,23 @@ export default function Settings() {
       const data = await res.json();
       setLapDirection(data.lap_direction || 'down');
       setDebugOverlays(data.debug_overlays || 'true');
+      setCameraIndex(data.camera_index || '0');
+      setTheme(data.theme || 'droid');
+      setArucoDict(data.aruco_dict || 'DICT_4X4_50');
     };
+    
+    const fetchCameras = async () => {
+      try {
+        const res = await fetch('/api/settings/cameras');
+        const data = await res.json();
+        setCameras(data);
+      } catch (err) {
+        console.error("Failed to fetch cameras");
+      }
+    };
+
     fetchSettings();
+    fetchCameras();
   }, []);
 
   const handleSave = async () => {
@@ -22,9 +43,14 @@ export default function Settings() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify([
         { key: 'lap_direction', value: lapDirection },
-        { key: 'debug_overlays', value: debugOverlays }
+        { key: 'debug_overlays', value: debugOverlays },
+        { key: 'camera_index', value: cameraIndex },
+        { key: 'theme', value: theme },
+        { key: 'aruco_dict', value: arucoDict }
       ])
     });
+    // Trigger theme update on root if changed
+    updateTheme(theme as 'droid' | 'pro');
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };
@@ -99,6 +125,98 @@ export default function Settings() {
         </div>
 
         <hr className="border-slate-800" />
+
+        {/* Camera Selection */}
+        <div>
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-white">
+            <Camera className="w-5 h-5 text-orange-500" /> Camera Selection
+          </h2>
+          <p className="text-sm text-slate-400 mb-4">
+            Select the camera device to use for ArUco tag tracking.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {cameras.map(cam => (
+              <label key={cam.index} className={`cursor-pointer p-4 rounded-xl border flex items-center gap-3 transition-colors ${cameraIndex === cam.index.toString() ? 'bg-orange-900/20 border-orange-500' : 'bg-slate-950 border-slate-800 hover:border-slate-700'}`}>
+                <input type="radio" className="hidden" name="camera" value={cam.index} checked={cameraIndex === cam.index.toString()} onChange={() => setCameraIndex(cam.index.toString())} />
+                <div className="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center">
+                  <Camera className="w-5 h-5 text-orange-500" />
+                </div>
+                <div>
+                  <div className="font-medium text-slate-200">{cam.name}</div>
+                  <div className="text-xs text-slate-500">Device Index {cam.index}</div>
+                </div>
+              </label>
+            ))}
+            {cameras.length === 0 && (
+              <div className="col-span-full p-4 bg-red-950/20 border border-red-900/50 rounded-xl text-red-400 text-sm flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4" /> No cameras detected. Ensure your camera is plugged in and recognized by the system.
+              </div>
+            )}
+          </div>
+        </div>
+
+        <hr className="border-slate-800" />
+
+        {/* Theme Selection */}
+        <div>
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-white">
+            <Monitor className="w-5 h-5 text-purple-500" /> UI Theme & Terminology
+          </h2>
+          <p className="text-sm text-slate-400 mb-4">
+            Choose a visual style and terminology that fits your racing event.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label className={`cursor-pointer p-4 rounded-xl border flex flex-col gap-3 transition-colors ${theme === 'droid' ? 'bg-purple-900/20 border-purple-500' : 'bg-slate-950 border-slate-800 hover:border-slate-700'}`}>
+              <input type="radio" className="hidden" name="theme" value="droid" checked={theme === 'droid'} onChange={() => setTheme('droid')} />
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center">
+                  <Cpu className="w-5 h-5 text-purple-500" />
+                </div>
+                <div className="font-medium text-slate-200">Droid Racing (Sci-Fi)</div>
+              </div>
+              <p className="text-xs text-slate-500">Uses Star Wars terminology: "Droids", "Garage", "ArUco Tags".</p>
+            </label>
+
+            <label className={`cursor-pointer p-4 rounded-xl border flex flex-col gap-3 transition-colors ${theme === 'pro' ? 'bg-purple-900/20 border-purple-500' : 'bg-slate-950 border-slate-800 hover:border-slate-700'}`}>
+              <input type="radio" className="hidden" name="theme" value="pro" checked={theme === 'pro'} onChange={() => setTheme('pro')} />
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center">
+                  <Flag className="w-5 h-5 text-purple-500" />
+                </div>
+                <div className="font-medium text-slate-200">Professional (Standard)</div>
+              </div>
+              <p className="text-xs text-slate-500">Uses neutral terminology: "Competitors", "Paddock", "Sensors".</p>
+            </label>
+          </div>
+        </div>
+
+        <hr className="border-slate-800" />
+
+        {/* ArUco Dictionary Selection */}
+        <div>
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-white">
+            <Cpu className="w-5 h-5 text-blue-500" /> ArUco Tag Dictionary
+          </h2>
+          <p className="text-sm text-slate-400 mb-4">
+            Select the dictionary that matches your racing tags. Most droid races use 4x4, but standard ArUco tags are often 6x6.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {[
+              { id: 'DICT_4X4_50', name: '4x4 (50 IDs)', desc: 'Smallest set' },
+              { id: 'DICT_4X4_1000', name: '4x4 (1000 IDs)', desc: 'Online Generator Default' },
+              { id: 'DICT_6X6_250', name: '6x6 (250 IDs)', desc: 'Standard ArUco' },
+              { id: 'DICT_APRILTAG_36h11', name: 'AprilTag 36h11', desc: 'Robotics' }
+            ].map(dict => (
+              <label key={dict.id} className={`cursor-pointer p-4 rounded-xl border flex flex-col transition-colors ${arucoDict === dict.id ? 'bg-blue-900/20 border-blue-500' : 'bg-slate-950 border-slate-800 hover:border-slate-700'}`}>
+                <div className="flex items-center gap-3 mb-1">
+                  <input type="radio" className="hidden" name="dict" value={dict.id} checked={arucoDict === dict.id} onChange={() => setArucoDict(dict.id)} />
+                  <span className="font-medium text-slate-200">{dict.name}</span>
+                </div>
+                <span className="text-xs text-slate-500">{dict.desc}</span>
+              </label>
+            ))}
+          </div>
+        </div>
 
         {/* Debug Overlays */}
         <div>

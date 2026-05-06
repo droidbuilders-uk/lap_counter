@@ -22,3 +22,5 @@ frontend/dist-ssr
 .vscode/
 *.swp
 .DS_Store
+
+*.deb

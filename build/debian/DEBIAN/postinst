@@ -1,0 +1,30 @@
+#!/bin/bash
+set -e
+
+APP_DIR="/opt/lapcounter"
+
+echo "Setting up virtual environment..."
+cd "$APP_DIR"
+python3 -m venv .venv
+.venv/bin/pip install --upgrade pip
+.venv/bin/pip install -r requirements.txt
+
+echo "Setting permissions..."
+# Create user if not exists
+if ! id -u lapcounter > /dev/null 2>&1; then
+    useradd -m -r -s /bin/false lapcounter
+fi
+
+chown -R lapcounter:lapcounter "$APP_DIR"
+chmod -R 755 "$APP_DIR"
+
+echo "Reloading systemd and enabling service..."
+systemctl daemon-reload
+systemctl enable lapcounter
+
+echo "--------------------------------------------------------"
+echo "Installation Complete!"
+echo "To start the service: sudo systemctl start lapcounter"
+echo "To view logs: journalctl -u lapcounter -f"
+echo "Access the dashboard at: http://localhost:8000"
+echo "--------------------------------------------------------"
