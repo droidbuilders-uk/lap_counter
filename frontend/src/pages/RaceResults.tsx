@@ -18,7 +18,15 @@ interface Lap {
 }
 
 interface RaceData {
-  race: any;
+  race: {
+    id: number;
+    name: string;
+    status: string;
+    race_type: string;
+    duration_seconds: number;
+    max_laps: number;
+    start_time: string | null;
+  };
   droids: Droid[];
   laps: Lap[];
 }

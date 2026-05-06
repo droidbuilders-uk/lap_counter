@@ -2,6 +2,11 @@ import { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { Settings as SettingsIcon, Save, Monitor, ArrowDownUp, AlertTriangle, Camera, Cpu, Flag } from 'lucide-react';
 
+interface CameraDevice {
+  index: number;
+  name: string;
+}
+
 export default function Settings() {
   const { setTheme: updateTheme } = useTheme();
   const [lapDirection, setLapDirection] = useState('down');
@@ -9,7 +14,7 @@ export default function Settings() {
   const [cameraIndex, setCameraIndex] = useState('0');
   const [theme, setTheme] = useState('droid');
   const [arucoDict, setArucoDict] = useState('DICT_4X4_50');
-  const [cameras, setCameras] = useState<any[]>([]);
+  const [cameras, setCameras] = useState<CameraDevice[]>([]);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
@@ -28,7 +33,7 @@ export default function Settings() {
         const res = await fetch('/api/settings/cameras');
         const data = await res.json();
         setCameras(data);
-      } catch (err) {
+      } catch {
         console.error("Failed to fetch cameras");
       }
     };

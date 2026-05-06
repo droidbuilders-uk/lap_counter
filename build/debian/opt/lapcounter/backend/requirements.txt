@@ -1,7 +1,0 @@
-fastapi
-uvicorn[standard]
-websockets
-sqlalchemy
-opencv-contrib-python
-numpy
-pydantic

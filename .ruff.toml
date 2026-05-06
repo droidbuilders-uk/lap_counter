@@ -4,4 +4,4 @@ target-version = "py310"
 
 [lint]
 select = ["E", "F", "W", "B", "I"]
-ignore = ["E722"] # We'll fix the bare except manually, but this is for reference
+ignore = ["E722", "B008"] # B008 is for FastAPI's Depends() pattern

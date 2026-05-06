@@ -1,7 +1,0 @@
-fastapi
-uvicorn
-sqlalchemy
-python-multipart
-opencv-contrib-python
-numpy
-jinja2

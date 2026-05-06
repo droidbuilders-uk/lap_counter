@@ -18,6 +18,16 @@ export default function Droids() {
   const [error, setError] = useState('');
   const [editingDroid, setEditingDroid] = useState<Droid | null>(null);
 
+  const fetchDroids = async () => {
+    try {
+      const res = await fetch('/api/droids');
+      const data = await res.json();
+      setDroids(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
     fetchDroids();
   }, []);
@@ -27,7 +37,7 @@ export default function Droids() {
     if (!editingDroid && droids.length > 0) {
       const usedIds = droids.map(d => d.aruco_id).sort((a,b) => a - b);
       let nextId = 0;
-      for (let id of usedIds) {
+      for (const id of usedIds) {
         if (id === nextId) nextId++;
         else break;
       }
@@ -38,16 +48,6 @@ export default function Droids() {
       setArucoId('0');
     }
   }, [droids, editingDroid]);
-
-  const fetchDroids = async () => {
-    try {
-      const res = await fetch('/api/droids');
-      const data = await res.json();
-      setDroids(data);
-    } catch (err) {
-      console.error(err);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,8 +74,9 @@ export default function Droids() {
       
       handleCancelEdit();
       fetchDroids();
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      if (err instanceof Error) setError(err.message);
+      else setError('An unknown error occurred');
     }
   };
 

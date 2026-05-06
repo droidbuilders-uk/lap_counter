@@ -32,11 +32,6 @@ export default function Races() {
   const [maxLaps, setMaxLaps] = useState(10);
   const [selectedDroids, setSelectedDroids] = useState<number[]>([]);
 
-  useEffect(() => {
-    fetchDroids();
-    fetchRaces();
-  }, []);
-
   const fetchDroids = async () => {
     const res = await fetch('/api/droids');
     setDroids(await res.json());
@@ -46,6 +41,11 @@ export default function Races() {
     const res = await fetch('/api/races');
     setRaces(await res.json());
   };
+
+  useEffect(() => {
+    fetchDroids();
+    fetchRaces();
+  }, []);
 
   const handleCreateRace = async (e: React.FormEvent) => {
     e.preventDefault();

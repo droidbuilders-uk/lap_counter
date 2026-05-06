@@ -48,7 +48,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           setThemeState(data.theme as Theme);
           document.documentElement.setAttribute('data-theme', data.theme);
         }
-      } catch (err) {
+      } catch {
         console.error("Failed to fetch theme");
       }
     };
@@ -73,6 +73,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useTheme = () => {
   const context = useContext(ThemeContext);
   if (context === undefined) {

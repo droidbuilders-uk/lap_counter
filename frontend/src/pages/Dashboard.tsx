@@ -19,7 +19,15 @@ interface Lap {
 }
 
 interface ActiveRaceData {
-  race: any;
+  race: {
+    id: number;
+    name: string;
+    status: string;
+    race_type: string;
+    duration_seconds: number;
+    max_laps: number;
+    start_time: string | null;
+  };
   droids: Droid[];
   laps: Lap[];
 }
@@ -37,7 +45,7 @@ export default function Dashboard() {
       const res = await fetch('/api/races/active');
       const data = await res.json();
       setActiveData(data || null);
-    } catch (err) {
+    } catch {
       console.error("Failed to fetch active race");
     }
   };
@@ -76,7 +84,7 @@ export default function Dashboard() {
     return () => {
       if (ws.current) ws.current.close();
     };
-  }, []);
+  }, [navigate]);
 
   // Timer Effect
   useEffect(() => {

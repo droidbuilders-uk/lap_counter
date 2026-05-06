@@ -9,6 +9,7 @@ import cv2.aruco as aruco
 from .database import SessionLocal
 from .models import AppSetting, Lap, Race, RaceEntry
 
+
 class CameraTracker:
     def __init__(self):
         self.is_running = False
@@ -277,7 +278,7 @@ class CameraTracker:
                     # ONLY TRACK DROIDS IN THE ACTIVE RACE
                     if marker_id not in self.valid_aruco_ids:
                         continue
-                    
+
                     current_time = time.time()
 
                     is_cooling_down = False
@@ -357,7 +358,7 @@ class CameraTracker:
 
             db.commit()
             db.refresh(new_lap)
-            
+
             if self.lap_callback:
                 self.lap_callback({
                     "droid_id": droid.id,
@@ -366,7 +367,7 @@ class CameraTracker:
                     "lap_time_ms": lap_time_ms,
                     "timestamp": now.isoformat()
                 })
-            
+
             if race_finished:
                 self.set_active_race(None)
         finally:

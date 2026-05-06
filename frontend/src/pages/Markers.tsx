@@ -6,7 +6,7 @@ const Markers = () => {
   const { labels, theme } = useTheme();
   const [markerId, setMarkerId] = useState(0);
   const [dictionary, setDictionary] = useState('DICT_4X4_50');
-  const [settings, setSettings] = useState<any>(null);
+  const [settings, setSettings] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetch('/api/settings')

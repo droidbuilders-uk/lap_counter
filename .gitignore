@@ -25,3 +25,4 @@ frontend/dist-ssr
 
 *.deb
 build/
+.ruff_cache/

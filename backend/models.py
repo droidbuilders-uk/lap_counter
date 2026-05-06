@@ -1,7 +1,10 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
-from sqlalchemy.orm import relationship
-from .database import Base
 from datetime import datetime
+
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy.orm import relationship
+
+from .database import Base
+
 
 class Droid(Base):
     __tablename__ = "droids"
@@ -25,7 +28,7 @@ class Race(Base):
     name = Column(String, index=True)
     status = Column(String, default="pending") # pending, active, finished
     start_time = Column(DateTime, nullable=True)
-    
+
     # Race Rules
     race_type = Column(String, default="time") # 'time' or 'laps'
     duration_seconds = Column(Integer, default=240) # Default 4 mins

@@ -1,23 +1,24 @@
-from fastapi import FastAPI, Depends, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
-from sqlalchemy.orm import Session
-from typing import List
-import json
 import asyncio
-import time
 import io
+import json
 import os
+import time
+from datetime import datetime
+from typing import List
+
 import cv2
 import cv2.aruco as aruco
 import numpy as np
-from datetime import datetime
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 from . import models
-from .database import engine, get_db
 from .camera_tracker import tracker
-from pydantic import BaseModel
+from .database import engine, get_db
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -57,7 +58,7 @@ def on_lap_recorded(lap_data: dict):
     try:
         # We need the loop where the manager connections live (the main loop)
         # In FastAPI, we can't easily get the main loop from a random thread without storing it
-        # But we can try to use the current running loop if we are in it, 
+        # But we can try to use the current running loop if we are in it,
         # or use a global reference.
         asyncio.run_coroutine_threadsafe(
             manager.broadcast(json.dumps({
@@ -97,7 +98,7 @@ def sync_auto_stop_timer(race_id: int, duration_seconds: int):
             race.status = 'finished'
             db.commit()
             tracker.set_active_race(None)
-            
+
             # Broadcast the stop
             try:
                 loop = asyncio.get_event_loop()
@@ -156,15 +157,15 @@ def get_marker_image(marker_id: int, dictionary: str = "DICT_4X4_50", size: int 
         "DICT_7X7_50": aruco.DICT_7X7_50,
         "DICT_APRILTAG_36h11": getattr(aruco, 'DICT_APRILTAG_36h11', 0)
     }
-    
+
     if dictionary not in dict_mapping:
         raise HTTPException(status_code=400, detail="Invalid dictionary")
-    
+
     try:
         dict_obj = aruco.Dictionary_get(dict_mapping[dictionary])
     except AttributeError:
         dict_obj = aruco.getPredefinedDictionary(dict_mapping[dictionary])
-        
+
     # Generate marker
     try:
         marker_img = np.zeros((size, size), dtype=np.uint8)
@@ -172,15 +173,15 @@ def get_marker_image(marker_id: int, dictionary: str = "DICT_4X4_50", size: int 
             marker_img = aruco.drawMarker(dict_obj, marker_id, size, marker_img, 1)
         except AttributeError:
             marker_img = aruco.generateImageMarker(dict_obj, marker_id, size, 1)
-            
+
         # Encode to PNG
         ret, buffer = cv2.imencode('.png', marker_img)
         if not ret:
             raise HTTPException(status_code=500, detail="Failed to encode image")
-            
+
         return StreamingResponse(io.BytesIO(buffer), media_type="image/png")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @app.get("/api/settings")
 def get_settings(db: Session = Depends(get_db)):
@@ -206,7 +207,7 @@ def update_settings(settings: List[SettingUpdate], db: Session = Depends(get_db)
             db.add(db_setting)
         config[s.key] = s.value
     db.commit()
-    
+
     tracker.update_settings(config)
     return config
 
@@ -227,36 +228,36 @@ def list_cameras():
 async def reset_database(db: Session = Depends(get_db)):
     # Stop any active tracking to prevent foreign key errors
     tracker.set_active_race(None)
-    
+
     # Delete all operational data
     db.query(models.Lap).delete()
     db.query(models.RaceEntry).delete()
     db.query(models.Race).delete()
     db.query(models.Droid).delete()
     db.commit()
-    
+
     # Broadcast to clear frontend state
     await manager.broadcast(json.dumps({
         "type": "race_stopped",
         "race_id": None
     }))
-    
+
     return {"status": "ok"}
 
 @app.post("/api/settings/reset_races")
 async def reset_races(db: Session = Depends(get_db)):
     tracker.set_active_race(None)
-    
+
     db.query(models.Lap).delete()
     db.query(models.RaceEntry).delete()
     db.query(models.Race).delete()
     db.commit()
-    
+
     await manager.broadcast(json.dumps({
         "type": "race_stopped",
         "race_id": None
     }))
-    
+
     return {"status": "ok"}
 
 @app.get("/api/droids")
@@ -269,7 +270,7 @@ def create_droid(droid: DroidCreate, db: Session = Depends(get_db)):
     existing = db.query(models.Droid).filter(models.Droid.aruco_id == droid.aruco_id).first()
     if existing:
         raise HTTPException(status_code=400, detail="ArUco ID already registered")
-        
+
     db_droid = models.Droid(**droid.dict())
     db.add(db_droid)
     db.commit()
@@ -281,12 +282,12 @@ def update_droid(droid_id: int, droid: DroidCreate, db: Session = Depends(get_db
     db_droid = db.query(models.Droid).filter(models.Droid.id == droid_id).first()
     if not db_droid:
         raise HTTPException(status_code=404, detail="Droid not found")
-        
+
     if droid.aruco_id != db_droid.aruco_id:
         existing = db.query(models.Droid).filter(models.Droid.aruco_id == droid.aruco_id).first()
         if existing:
             raise HTTPException(status_code=400, detail="ArUco ID already registered")
-            
+
     db_droid.name = droid.name
     db_droid.aruco_id = droid.aruco_id
     db_droid.color_hex = droid.color_hex
@@ -324,7 +325,7 @@ def create_race(race: RaceCreate, db: Session = Depends(get_db)):
         entry = models.RaceEntry(race_id=db_race.id, droid_id=droid_id)
         db.add(entry)
     db.commit()
-    
+
     return db_race
 
 @app.get("/api/races/active")
@@ -332,12 +333,12 @@ def get_active_race(db: Session = Depends(get_db)):
     race = db.query(models.Race).filter(models.Race.status == 'active').first()
     if not race:
         return None
-        
+
     # Get entries and laps
     entries = db.query(models.RaceEntry).filter(models.RaceEntry.race_id == race.id).all()
     droids = [e.droid for e in entries if e.droid]
     laps = db.query(models.Lap).filter(models.Lap.race_id == race.id).all()
-    
+
     return {
         "race": race,
         "droids": droids,
@@ -349,11 +350,11 @@ def get_single_race(race_id: int, db: Session = Depends(get_db)):
     race = db.query(models.Race).filter(models.Race.id == race_id).first()
     if not race:
         raise HTTPException(status_code=404, detail="Race not found")
-        
+
     entries = db.query(models.RaceEntry).filter(models.RaceEntry.race_id == race.id).all()
     droids = [e.droid for e in entries if e.droid]
     laps = db.query(models.Lap).filter(models.Lap.race_id == race.id).all()
-    
+
     return {
         "race": race,
         "droids": droids,
@@ -366,11 +367,11 @@ def repeat_race(race_id: int, db: Session = Depends(get_db)):
     original_race = db.query(models.Race).filter(models.Race.id == race_id).first()
     if not original_race:
         raise HTTPException(status_code=404, detail="Original race not found")
-        
+
     # Get original entries
     entries = db.query(models.RaceEntry).filter(models.RaceEntry.race_id == race_id).all()
     droid_ids = [e.droid_id for e in entries]
-    
+
     # Create new race
     new_race = models.Race(
         name=f"{original_race.name} (Repeat)",
@@ -382,12 +383,12 @@ def repeat_race(race_id: int, db: Session = Depends(get_db)):
     db.add(new_race)
     db.commit()
     db.refresh(new_race)
-    
+
     # Add same droids
     for d_id in droid_ids:
         entry = models.RaceEntry(race_id=new_race.id, droid_id=d_id)
         db.add(entry)
-    
+
     db.commit()
     return new_race
 
@@ -398,28 +399,28 @@ async def start_race(race_id: int, background_tasks: BackgroundTasks, db: Sessio
     active_races = db.query(models.Race).filter(models.Race.status == 'active').all()
     for ar in active_races:
         ar.status = 'finished'
-    
+
     race = db.query(models.Race).filter(models.Race.id == race_id).first()
     if not race:
         raise HTTPException(status_code=404, detail="Race not found")
-        
+
     race.status = 'active'
     race.start_time = datetime.utcnow()
     db.commit()
-    
+
     # Notify tracker
     tracker.set_active_race(race.id)
-    
+
     # Broadcast start event
     await manager.broadcast(json.dumps({
         "type": "race_started",
         "race_id": race.id
     }))
-    
+
     # Setup auto-stop for timed races
     if race.race_type == 'time':
         background_tasks.add_task(sync_auto_stop_timer, race.id, race.duration_seconds)
-    
+
     return race
 
 @app.post("/api/races/{race_id}/stop")
@@ -427,17 +428,17 @@ async def stop_race(race_id: int, db: Session = Depends(get_db)):
     race = db.query(models.Race).filter(models.Race.id == race_id).first()
     if not race:
         raise HTTPException(status_code=404, detail="Race not found")
-        
+
     race.status = 'finished'
     db.commit()
-    
+
     tracker.set_active_race(None)
-    
+
     await manager.broadcast(json.dumps({
         "type": "race_stopped",
         "race_id": race.id
     }))
-    
+
     return race
 
 # Serve static files from the React frontend build
@@ -452,7 +453,7 @@ if os.path.exists(frontend_dist_path):
         # Don't shadow /api or /ws routes
         if full_path.startswith("api") or full_path.startswith("ws"):
             raise HTTPException(status_code=404)
-        
+
         index_path = os.path.join(frontend_dist_path, "index.html")
         return FileResponse(index_path)
 else:
