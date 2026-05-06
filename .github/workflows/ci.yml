@@ -1,0 +1,55 @@
+name: CI - Code Quality & Security
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  backend-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          
+      - name: Install Linting Tools
+        run: |
+          pip install ruff bandit
+          
+      - name: Run Ruff (Linter)
+        run: ruff check .
+        
+      - name: Run Bandit (Security Scan)
+        run: bandit -r backend/ -ll
+        
+  frontend-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+          
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm install
+          
+      - name: Run ESLint
+        run: |
+          cd frontend
+          npm run lint
+          
+      - name: Run Type Check (TSC)
+        run: |
+          cd frontend
+          npm run build # This runs tsc -b && vite build
