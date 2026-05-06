@@ -1,11 +1,13 @@
-import cv2
-import cv2.aruco as aruco
-import time
 import subprocess
 import threading
+import time
 from datetime import datetime
+
+import cv2
+import cv2.aruco as aruco
+
 from .database import SessionLocal
-from .models import Race, RaceEntry, Lap, AppSetting
+from .models import AppSetting, Lap, Race, RaceEntry
 
 class CameraTracker:
     def __init__(self):
@@ -21,11 +23,11 @@ class CameraTracker:
             "camera_index": "0",
             "aruco_dict": "DICT_4X4_50"
         }
-        
+
     def update_settings(self, settings):
         print(f"DEBUG: CameraTracker updating settings: {settings}")
         self.settings.update(settings)
-        
+
     def load_initial_settings(self):
         db = SessionLocal()
         try:
@@ -34,7 +36,7 @@ class CameraTracker:
                 self.settings[s.key] = s.value
         finally:
             db.close()
-        
+
     def set_active_race(self, race_id):
         self.active_race_id = race_id
         self._update_valid_droids()
@@ -43,7 +45,7 @@ class CameraTracker:
         if not self.active_race_id:
             self.valid_aruco_ids = []
             return
-            
+
         db = SessionLocal()
         try:
             race = db.query(Race).filter(Race.id == self.active_race_id).first()
@@ -60,7 +62,7 @@ class CameraTracker:
         if self.thread and self.thread.is_alive():
             print("DEBUG: CameraTracker thread already running.")
             return
-            
+
         print("DEBUG: Starting CameraTracker thread...")
         self.is_running = True
         self.load_initial_settings()
@@ -75,7 +77,7 @@ class CameraTracker:
     def _run_loop(self):
         current_camera_idx = int(self.settings.get("camera_index", "0"))
         cap = cv2.VideoCapture(current_camera_idx)
-        
+
         def setup_camera(c, idx):
             c.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
             c.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
@@ -107,7 +109,7 @@ class CameraTracker:
             "DICT_7X7_50": aruco.DICT_7X7_50,
             "DICT_APRILTAG_36h11": getattr(aruco, 'DICT_APRILTAG_36h11', 0)
         }
-        
+
         current_dict_key = self.settings.get("aruco_dict", "DICT_4X4_50")
         dict_id = dict_mapping.get(current_dict_key, aruco.DICT_4X4_50)
 
@@ -134,7 +136,7 @@ class CameraTracker:
         previous_positions = {}
         last_cross_time = {}
         COOLDOWN_SECONDS = 3.0
-        
+
         fps_counter = 0
         fps_start_time = time.time()
         current_fps = 0
@@ -143,10 +145,11 @@ class CameraTracker:
             # Check for camera or dictionary index change
             new_camera_idx = int(self.settings.get("camera_index", "0"))
             new_dict_key = self.settings.get("aruco_dict", "DICT_4X4_50")
-            
+
             if new_camera_idx != current_camera_idx or new_dict_key != current_dict_key:
-                print(f"DEBUG: Setting change requested. Camera: {current_camera_idx}->{new_camera_idx}, Dict: {current_dict_key}->{new_dict_key}")
-                
+                print(f"DEBUG: Setting change requested. Camera: {current_camera_idx}->{new_camera_idx}, "
+                      f"Dict: {current_dict_key}->{new_dict_key}")
+
                 if new_dict_key != current_dict_key:
                     current_dict_key = new_dict_key
                     dict_id = dict_mapping.get(current_dict_key, aruco.DICT_4X4_50)
@@ -165,11 +168,11 @@ class CameraTracker:
                         setup_camera(cap, current_camera_idx)
                     else:
                         print(f"ERROR: Failed to open camera {current_camera_idx}")
-            
+
             if not cap.isOpened():
                 print(f"ERROR: Camera {current_camera_idx} is not opened. Attempting to reconnect...")
                 # Clear stale frame if camera is lost for more than 2 seconds
-                self.latest_frame = None 
+                self.latest_frame = None
                 time.sleep(2)
                 cap = cv2.VideoCapture(current_camera_idx)
                 if cap.isOpened():
@@ -182,56 +185,58 @@ class CameraTracker:
                 print(f"WARNING: Failed to read frame from camera {current_camera_idx}")
                 time.sleep(0.5)
                 continue
-            
+
             fps_counter += 1
             if time.time() - fps_start_time > 1.0:
                 current_fps = fps_counter / (time.time() - fps_start_time)
                 fps_counter = 0
                 fps_start_time = time.time()
-            
+
             # Draw the finish line for the UI feed
             height, width = frame.shape[:2]
             finish_line_y = height // 2
-            
+
             ui_frame = frame.copy()
             cv2.line(ui_frame, (0, finish_line_y), (width, finish_line_y), (0, 0, 255), 2)
-            
+
             show_debug = self.settings.get("debug_overlays", "true") == "true"
             if show_debug:
-                cv2.putText(ui_frame, f"FPS: {int(current_fps)} | Res: {width}x{height}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+                cv2.putText(ui_frame, f"FPS: {int(current_fps)} | Res: {width}x{height}", (10, 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
             # if fps_counter % 30 == 0:
-            #     print(f"DEBUG: Processing frame {width}x{height} @ {int(current_fps)} FPS. Camera: {current_camera_idx}")
+            #     print(f"DEBUG: Processing frame {width}x{height} @ {int(current_fps)} FPS. "
+            #           f"Camera: {current_camera_idx}")
 
             # Digital Brightness/Gain Boost for high-speed modes
             # alpha=1.5 (gain), beta=50 (brightness offset)
             frame = cv2.convertScaleAbs(frame, alpha=1.5, beta=50)
-            
+
             # Downsample and correct aspect ratio if needed
             target_width = 320
             target_height = 240
             if width == 640 and height == 400:
                 gray = cv2.resize(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY), (target_width, target_height))
             else:
-                gray = cv2.resize(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY), (target_width, int(target_width * height / width)))
-            
+                gray = cv2.resize(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY),
+                                  (target_width, int(target_width * height / width)))
             # STAGE 1: Contrast Normalization
             # CLAHE is better than equalizeHist as it limits noise amplification
             clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
             gray = clahe.apply(gray)
-            
-            def detect(img):
+
+            def detect(img, d_obj, d_params, d_detector):
                 try:
-                    c, i, _ = aruco.detectMarkers(img, aruco_dict, parameters=aruco_params)
+                    c, i, _ = aruco.detectMarkers(img, d_obj, parameters=d_params)
                 except AttributeError:
-                    c, i, _ = detector.detectMarkers(img)
+                    c, i, _ = d_detector.detectMarkers(img)
                 return c, i
 
             # Try normal and mirrored (some high-speed modes are flipped)
-            corners, ids = detect(gray)
+            corners, ids = detect(gray, aruco_dict, aruco_params, detector)
             is_mirrored = False
-            
+
             if ids is None:
-                corners, ids = detect(cv2.flip(gray, 1))
+                corners, ids = detect(cv2.flip(gray, 1), aruco_dict, aruco_params, detector)
                 if ids is not None:
                     is_mirrored = True
 
@@ -239,7 +244,7 @@ class CameraTracker:
             if ids is not None:
                 ratio_x = width / target_width
                 ratio_y = height / target_height
-                
+
                 # Make a copy of corners to avoid modifying them while iterating
                 rescaled_corners = []
                 for corner in corners:
@@ -252,7 +257,7 @@ class CameraTracker:
                     c[:, 1] *= ratio_y
                     rescaled_corners.append(c.reshape(1, 4, 2))
                 corners = rescaled_corners
-                
+
                 # if fps_counter % 30 == 0:
                 #     print(f"DEBUG: Detected {len(ids)} tags! Mirrored: {is_mirrored}")
                 for i in range(len(ids)):
@@ -261,46 +266,46 @@ class CameraTracker:
                     c = corners[i][0]
                     center_y = int((c[0][1] + c[2][1]) / 2)
                     center_x = int((c[0][0] + c[2][0]) / 2)
-                    
+
                     if show_debug:
                         # Draw marker outline and ID
                         cv2.polylines(ui_frame, [c.astype(int)], True, (0, 255, 0), 2)
-                        cv2.putText(ui_frame, f"ID: {marker_id}", (int(c[0][0]), int(c[0][1]) - 10), 
+                        cv2.putText(ui_frame, f"ID: {marker_id}", (int(c[0][0]), int(c[0][1]) - 10),
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
                         cv2.circle(ui_frame, (center_x, center_y), 4, (255, 0, 0), -1)
-                    
+
                     # ONLY TRACK DROIDS IN THE ACTIVE RACE
                     if marker_id not in self.valid_aruco_ids:
                         continue
                     
                     current_time = time.time()
-                    
+
                     is_cooling_down = False
                     if marker_id in last_cross_time:
                         if (current_time - last_cross_time[marker_id]) < COOLDOWN_SECONDS:
                             is_cooling_down = True
-                    
+
                     if not is_cooling_down:
                         if marker_id in previous_positions:
                             prev_y = previous_positions[marker_id]
-                            
+
                             crossed_down = prev_y <= finish_line_y and center_y > finish_line_y
                             crossed_up = prev_y >= finish_line_y and center_y < finish_line_y
-                            
+
                             direction = self.settings.get("lap_direction", "down")
                             is_lap = False
-                            
+
                             if direction == 'down' and crossed_down:
                                 is_lap = True
                             elif direction == 'up' and crossed_up:
                                 is_lap = True
                             elif direction == 'both' and (crossed_down or crossed_up):
                                 is_lap = True
-                                
+
                             if is_lap:
                                 last_cross_time[marker_id] = current_time
                                 self._record_lap(marker_id)
-                        
+
                         previous_positions[marker_id] = center_y
 
             # Finally encode the frame for the web UI AFTER drawing all overlays
@@ -313,7 +318,7 @@ class CameraTracker:
     def _record_lap(self, aruco_id):
         if not self.active_race_id:
             return
-            
+
         db = SessionLocal()
         try:
             from .models import Droid
@@ -325,11 +330,11 @@ class CameraTracker:
                 Lap.race_id == self.active_race_id,
                 Lap.droid_id == droid.id
             ).order_by(Lap.lap_number.desc()).first()
-            
+
             lap_num = 1 if not prev_lap else prev_lap.lap_number + 1
             now = datetime.utcnow()
             race = db.query(Race).filter(Race.id == self.active_race_id).first()
-            
+
             lap_time_ms = 0
             if prev_lap:
                 lap_time_ms = int((now - prev_lap.timestamp).total_seconds() * 1000)
@@ -344,13 +349,12 @@ class CameraTracker:
                 lap_time_ms=lap_time_ms
             )
             db.add(new_lap)
-            
-            # Check if this lap finishes the race
+
             race_finished = False
-            if race and race.race_type == 'laps' and lap_num >= race.max_laps:
+            if race.race_type == 'laps' and lap_num >= race.duration_laps:
                 race.status = 'finished'
                 race_finished = True
-                
+
             db.commit()
             db.refresh(new_lap)
             
