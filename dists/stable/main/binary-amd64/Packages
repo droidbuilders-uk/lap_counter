@@ -1,0 +1,17 @@
+Package: lapcounter
+Version: 1.0.3
+Architecture: amd64
+Maintainer: Droid Builders UK <info@droidbuilders.uk>
+Depends: python3, python3-venv, python3-pip, libgl1-mesa-glx, libglib2.0-0, v4l-utils
+Filename: pool/main/lapcounter_1.0.3_amd64.deb
+Size: 97718
+MD5sum: 53d05074a8b3cb51253402f88e26f621
+SHA1: 626d12dd65c487a8c13f900f155c36b29e3a9e57
+SHA256: b2426b5b7a6215191f4ad82bc59df13dd76b31c9b879aecbe416d2e694d05398
+Section: utils
+Priority: optional
+Description: ArUco Tag Lap Counter Pro
+ A professional, high-performance lap counting and timing system
+ designed for ArUco tag tracking via computer vision.
+ Features real-time tracking, race control, and a live web dashboard.
+
