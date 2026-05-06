@@ -31,8 +31,8 @@ Built with **FastAPI**, **OpenCV**, and **React**, this system enables multi-dro
 You can install Lap Counter Pro directly via our APT repository. This will set up the application as a system service that starts automatically on boot.
 
 ```bash
-# Add the repository (replace [USER] with your GitHub username)
-echo "deb [trusted=yes] https://[USER].github.io/lap_counter/ stable main" | sudo tee /etc/apt/sources.list.d/lapcounter.list
+# Add the repository
+echo "deb [trusted=yes] https://droidbuilders-uk.github.io/lap_counter/ stable main" | sudo tee /etc/apt/sources.list.d/lapcounter.list
 
 # Install the application
 sudo apt update

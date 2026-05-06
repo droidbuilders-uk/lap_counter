@@ -8,6 +8,7 @@ import json
 import asyncio
 import time
 import io
+import os
 import cv2
 import cv2.aruco as aruco
 import numpy as np
