@@ -89,7 +89,7 @@ class CameraTracker:
             try:
                 device = f"/dev/video{idx}"
                 # 3 is Aperture Priority Auto Exposure in v4l2 (1 is manual)
-                subprocess.run(["v4l2-ctl", "-d", device, "-c", "auto_exposure=3"], timeout=2)
+                subprocess.run(["/usr/bin/v4l2-ctl", "-d", device, "-c", "auto_exposure=3"], timeout=2)
             except Exception as e:
                 print(f"Warning: Could not set v4l2 hardware settings for {idx}: {e}")
 
@@ -106,6 +106,7 @@ class CameraTracker:
                 self.capture = capture
                 self.ret = False
                 self.frame = None
+                self.new_frame_ready = False
                 self.running = True
                 self.thread = threading.Thread(target=self.update, daemon=True)
                 self.thread.start()
@@ -113,11 +114,16 @@ class CameraTracker:
             def update(self):
                 while self.running:
                     if self.capture.isOpened():
-                        self.ret, self.frame = self.capture.read()
+                        ret, frame = self.capture.read()
+                        if ret:
+                            self.ret = ret
+                            self.frame = frame
+                            self.new_frame_ready = True
                     else:
                         time.sleep(0.1)
 
             def read(self):
+                self.new_frame_ready = False
                 return self.ret, self.frame
 
             def stop(self):
@@ -163,7 +169,6 @@ class CameraTracker:
             aruco_params.errorCorrectionRate = 0.6
             # Performance tweaks for Pi 4
             aruco_params.cornerRefinementMethod = aruco.CORNER_REFINE_NONE
-            aruco_params.polygonalApproxAccuracyRate = 0.05
             detector = aruco.ArucoDetector(aruco_dict, aruco_params)
 
         previous_positions = {}
@@ -216,9 +221,12 @@ class CameraTracker:
                 grabber = FrameGrabber(cap)
                 continue
 
+            if not grabber.new_frame_ready:
+                time.sleep(0.01)
+                continue
+
             ret, frame = grabber.read()
             if not ret or frame is None:
-                # Only warn if it's been failing for a while
                 self.latest_frame = None  # Clear the frozen frame so the UI knows it's offline
                 time.sleep(0.1)
                 continue
@@ -245,15 +253,12 @@ class CameraTracker:
             #           f"Camera: {current_camera_idx}")
 
             try:
-                # OPTIMIZATION: Region of Interest (ROI) Cropping
-                # We only care about cars crossing the finish line (center of screen).
-                roi_y_start = height // 4
-                roi_y_end = 3 * height // 4
-                roi_frame = frame[roi_y_start:roi_y_end, :]
-
-                # DO NOT DOWNSAMPLE! Downsampling causes small ArUco tags to blur
-                # out and fail detection completely. The Pi 4 can handle 640x240 easily.
-                gray = cv2.cvtColor(roi_frame, cv2.COLOR_BGR2GRAY)
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                
+                # STAGE 1: Contrast Normalization
+                # Essential for low-contrast cameras or reading tags off phone screens
+                clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+                gray = clahe.apply(gray)
 
                 def detect(img, d_obj, d_params, d_detector):
                     try:
@@ -262,10 +267,10 @@ class CameraTracker:
                         c, i, _ = d_detector.detectMarkers(img)
                     return c, i
 
-                # Try normal and mirrored (some high-speed modes are flipped)
                 corners, ids = detect(gray, aruco_dict, aruco_params, detector)
                 is_mirrored = False
 
+                # Fallback: if tag is mirrored (e.g. holding a phone to a front-facing camera)
                 if ids is None:
                     corners, ids = detect(cv2.flip(gray, 1), aruco_dict, aruco_params, detector)
                     if ids is not None:
@@ -279,17 +284,15 @@ class CameraTracker:
                         # corner shape is (1, 4, 2)
                         c = corner[0].copy() # Get the 4 points
                         if is_mirrored:
-                            # Un-flip the x coordinates (since we didn't resize, width is full width)
+                            # Un-flip the x coordinates
                             c[:, 0] = width - c[:, 0]
-                        # Add the ROI vertical offset back so it aligns with the full UI frame
-                        c[:, 1] += roi_y_start
                         rescaled_corners.append(c.reshape(1, 4, 2))
                     corners = rescaled_corners
 
-                    # if fps_counter % 30 == 0:
-                    #     print(f"DEBUG: Detected {len(ids)} tags! Mirrored: {is_mirrored}")
-                    for i in range(len(ids)):
-                        marker_id = int(ids[i][0])
+                    import numpy as np
+                    flat_ids = np.ravel(ids)
+                    for i in range(len(flat_ids)):
+                        marker_id = int(flat_ids[i])
                         # Get center point of marker
                         c = corners[i][0]
                         center_y = int((c[0][1] + c[2][1]) / 2)
