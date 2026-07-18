@@ -3,5 +3,6 @@ uvicorn[standard]
 websockets
 sqlalchemy
 opencv-contrib-python
+pyserial
 numpy
 pydantic

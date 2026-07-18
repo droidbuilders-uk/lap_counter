@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
-import { Settings as SettingsIcon, Save, Monitor, ArrowDownUp, AlertTriangle, Camera, Cpu, Flag } from 'lucide-react';
+import { Settings as SettingsIcon, Save, Monitor, ArrowDownUp, AlertTriangle, Camera, Cpu, Flag, Radio, Usb } from 'lucide-react';
 
 interface CameraDevice {
   index: number;
@@ -14,6 +14,8 @@ export default function Settings() {
   const [cameraIndex, setCameraIndex] = useState('0');
   const [theme, setTheme] = useState('droid');
   const [arucoDict, setArucoDict] = useState('DICT_4X4_50');
+  const [trackingMethod, setTrackingMethod] = useState('camera');
+  const [serialPort, setSerialPort] = useState('/dev/ttyUSB0');
   const [cameras, setCameras] = useState<CameraDevice[]>([]);
   const [saved, setSaved] = useState(false);
 
@@ -26,6 +28,8 @@ export default function Settings() {
       setCameraIndex(data.camera_index || '0');
       setTheme(data.theme || 'droid');
       setArucoDict(data.aruco_dict || 'DICT_4X4_50');
+      setTrackingMethod(data.tracking_method || 'camera');
+      setSerialPort(data.serial_port || '/dev/ttyUSB0');
     };
     
     const fetchCameras = async () => {
@@ -51,7 +55,9 @@ export default function Settings() {
         { key: 'debug_overlays', value: debugOverlays },
         { key: 'camera_index', value: cameraIndex },
         { key: 'theme', value: theme },
-        { key: 'aruco_dict', value: arucoDict }
+        { key: 'aruco_dict', value: arucoDict },
+        { key: 'tracking_method', value: trackingMethod },
+        { key: 'serial_port', value: serialPort }
       ])
     });
     // Trigger theme update on root if changed
@@ -131,34 +137,91 @@ export default function Settings() {
 
         <hr className="border-slate-800" />
 
-        {/* Camera Selection */}
+        {/* Tracking Method Selection */}
         <div>
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-white">
-            <Camera className="w-5 h-5 text-orange-500" /> Camera Selection
+            <Radio className="w-5 h-5 text-indigo-500" /> Tracking Method
           </h2>
           <p className="text-sm text-slate-400 mb-4">
-            Select the camera device to use for ArUco tag tracking.
+            Select how lap times are recorded.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {cameras.map(cam => (
-              <label key={cam.index} className={`cursor-pointer p-4 rounded-xl border flex items-center gap-3 transition-colors ${cameraIndex === cam.index.toString() ? 'bg-orange-900/20 border-orange-500' : 'bg-slate-950 border-slate-800 hover:border-slate-700'}`}>
-                <input type="radio" className="hidden" name="camera" value={cam.index} checked={cameraIndex === cam.index.toString()} onChange={() => setCameraIndex(cam.index.toString())} />
+            <label className={`cursor-pointer p-4 rounded-xl border flex flex-col gap-3 transition-colors ${trackingMethod === 'camera' ? 'bg-indigo-900/20 border-indigo-500' : 'bg-slate-950 border-slate-800 hover:border-slate-700'}`}>
+              <input type="radio" className="hidden" name="tracking" value="camera" checked={trackingMethod === 'camera'} onChange={() => setTrackingMethod('camera')} />
+              <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center">
-                  <Camera className="w-5 h-5 text-orange-500" />
+                  <Camera className="w-5 h-5 text-indigo-500" />
                 </div>
-                <div>
-                  <div className="font-medium text-slate-200">{cam.name}</div>
-                  <div className="text-xs text-slate-500">Device Index {cam.index}</div>
-                </div>
-              </label>
-            ))}
-            {cameras.length === 0 && (
-              <div className="col-span-full p-4 bg-red-950/20 border border-red-900/50 rounded-xl text-red-400 text-sm flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4" /> No cameras detected. Ensure your camera is plugged in and recognized by the system.
+                <div className="font-medium text-slate-200">Camera (OpenCV ArUco)</div>
               </div>
-            )}
+              <p className="text-xs text-slate-500">Track visual tags using a USB webcam or Raspberry Pi camera module.</p>
+            </label>
+
+            <label className={`cursor-pointer p-4 rounded-xl border flex flex-col gap-3 transition-colors ${trackingMethod === 'ir_serial' ? 'bg-indigo-900/20 border-indigo-500' : 'bg-slate-950 border-slate-800 hover:border-slate-700'}`}>
+              <input type="radio" className="hidden" name="tracking" value="ir_serial" checked={trackingMethod === 'ir_serial'} onChange={() => setTrackingMethod('ir_serial')} />
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center">
+                  <Radio className="w-5 h-5 text-indigo-500" />
+                </div>
+                <div className="font-medium text-slate-200">IR Transponders (Serial)</div>
+              </div>
+              <p className="text-xs text-slate-500">Track active IR transmitters via an ESP32 or serial receiver.</p>
+            </label>
           </div>
         </div>
+
+        <hr className="border-slate-800" />
+
+        {trackingMethod === 'camera' ? (
+          {/* Camera Selection */}
+          <div>
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-white">
+              <Camera className="w-5 h-5 text-orange-500" /> Camera Selection
+            </h2>
+            <p className="text-sm text-slate-400 mb-4">
+              Select the camera device to use for ArUco tag tracking.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {cameras.map(cam => (
+                <label key={cam.index} className={`cursor-pointer p-4 rounded-xl border flex items-center gap-3 transition-colors ${cameraIndex === cam.index.toString() ? 'bg-orange-900/20 border-orange-500' : 'bg-slate-950 border-slate-800 hover:border-slate-700'}`}>
+                  <input type="radio" className="hidden" name="camera" value={cam.index} checked={cameraIndex === cam.index.toString()} onChange={() => setCameraIndex(cam.index.toString())} />
+                  <div className="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center">
+                    <Camera className="w-5 h-5 text-orange-500" />
+                  </div>
+                  <div>
+                    <div className="font-medium text-slate-200">{cam.name}</div>
+                    <div className="text-xs text-slate-500">Device Index {cam.index}</div>
+                  </div>
+                </label>
+              ))}
+              {cameras.length === 0 && (
+                <div className="col-span-full p-4 bg-red-950/20 border border-red-900/50 rounded-xl text-red-400 text-sm flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4" /> No cameras detected. Ensure your camera is plugged in and recognized by the system.
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          {/* Serial Port Selection */}
+          <div>
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-white">
+              <Usb className="w-5 h-5 text-orange-500" /> Serial Port Configuration
+            </h2>
+            <p className="text-sm text-slate-400 mb-4">
+              Specify the serial port connected to your IR receiver (e.g. ESP32).
+            </p>
+            <div className="bg-slate-950 border border-slate-800 p-4 rounded-xl">
+              <label className="block text-sm font-medium text-slate-300 mb-2">Device Path (e.g. /dev/ttyUSB0, COM3)</label>
+              <input 
+                type="text" 
+                value={serialPort} 
+                onChange={(e) => setSerialPort(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
+                placeholder="/dev/ttyUSB0"
+              />
+            </div>
+          </div>
+        )}
 
         <hr className="border-slate-800" />
 

@@ -17,7 +17,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from . import models
-from .camera_tracker import tracker
+from .tracker_manager import tracker
 from .database import engine, get_db
 
 models.Base.metadata.create_all(bind=engine)
@@ -73,6 +73,14 @@ def on_lap_recorded(lap_data: dict):
 @app.on_event("startup")
 async def startup_event():
     app.state.loop = asyncio.get_running_loop()
+    from .database import SessionLocal
+    from . import models
+    db = SessionLocal()
+    setting = db.query(models.AppSetting).filter(models.AppSetting.key == 'tracking_method').first()
+    if setting and setting.value == 'ir_serial':
+        tracker.active_tracker = 'ir_serial'
+    db.close()
+    
     tracker.start(lap_callback=on_lap_recorded)
 
 @app.on_event("shutdown")
