@@ -1,8 +1,36 @@
-import { Camera, Terminal, AlertCircle } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Camera, Terminal, AlertCircle, ScrollText } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
 export default function Debug() {
   const { labels } = useTheme();
+  const [logs, setLogs] = useState<string[]>([]);
+  const logsEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws`;
+    const ws = new WebSocket(wsUrl);
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'debug_log') {
+          setLogs(prev => [...prev, data.message].slice(-100)); // Keep last 100 lines
+        }
+      } catch (e) {
+        console.error("Failed to parse websocket message", e);
+      }
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, []);
+
+  useEffect(() => {
+    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [logs]);
 
   return (
     <div className="space-y-6">
@@ -100,6 +128,32 @@ export default function Debug() {
                 <span className="text-emerald-400 font-mono">&lt; 100ms</span>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Serial Logs */}
+        <div className="lg:col-span-4 bg-slate-900 border border-slate-800 rounded-xl shadow-xl overflow-hidden mt-6">
+          <div className="bg-slate-950/80 border-b border-slate-800 p-3 flex justify-between items-center">
+            <h2 className="text-sm font-bold flex items-center gap-2 text-white font-mono">
+              <ScrollText className="w-4 h-4 text-emerald-500" /> RAW SERIAL LOGS
+            </h2>
+            <div className="flex items-center gap-2">
+               <span className="relative flex h-2 w-2">
+                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+               </span>
+               <span className="text-[10px] text-emerald-500 font-bold tracking-widest">LIVE</span>
+            </div>
+          </div>
+          <div className="h-48 overflow-y-auto p-4 bg-[#0a0a0a] font-mono text-xs text-emerald-400 space-y-1">
+            {logs.length === 0 ? (
+              <div className="text-slate-600 italic">Waiting for serial data... Ensure IR Transponder method is selected and device is connected.</div>
+            ) : (
+              logs.map((log, i) => (
+                <div key={i} className="hover:bg-white/5 px-1 rounded break-all">{log}</div>
+              ))
+            )}
+            <div ref={logsEndRef} />
           </div>
         </div>
       </div>

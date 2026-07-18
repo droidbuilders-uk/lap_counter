@@ -1,40 +1,39 @@
 #include <Arduino.h>
-#include <IRrecv.h>
-#include <IRutils.h>
+#include <IRremote.hpp>
 
-// Define the GPIO pins connected to your TSOP38238 receivers.
-// You can daisy chain multiple receivers across the track!
-const uint16_t kRecvPins[] = {15, 2, 4, 16, 17, 5, 18, 19}; 
-const int numPins = sizeof(kRecvPins) / sizeof(kRecvPins[0]);
-
-IRrecv* irReceivers[numPins];
-decode_results results;
+// Use a single completely safe pin (e.g. Pin 32). 
+// You can connect multiple TSOP OUT pins together in parallel to this single ESP32 pin!
+const uint16_t kRecvPin = 32; 
 
 void setup() {
-  // Initialize Serial to match the backend's default baud rate (9600)
-  Serial.begin(9600);
-  
-  // Start all IR receivers
-  for (int i = 0; i < numPins; i++) {
-    irReceivers[i] = new IRrecv(kRecvPins[i]);
-    irReceivers[i]->enableIRIn(); 
-  }
+  Serial.begin(115200);
+  // Start the receiver and enable the built-in LED to blink when receiving IR
+  IrReceiver.begin(kRecvPin, ENABLE_LED_FEEDBACK); 
+  Serial.println("System Ready: Listening for IR transponders on Pin 32 (Native Library)");
 }
 
+unsigned long lastHeartbeat = 0;
+
 void loop() {
-  // Rapidly poll all receivers
-  for (int i = 0; i < numPins; i++) {
-    if (irReceivers[i]->decode(&results)) {
-      // We expect the ATtiny to send NEC protocol packets.
-      // Filter out garbage noise (0xFFFFFFFF is a repeat code)
-      if (results.decode_type == NEC && results.value != 0xFFFFFFFF) {
-        
-        // Print it securely so ir_tracker.py can parse it
+  if (millis() - lastHeartbeat > 5000) {
+    Serial.println("HEARTBEAT: ESP32 is alive and listening...");
+    lastHeartbeat = millis();
+  }
+
+  if (IrReceiver.decode()) {
+    // Print every signal we get
+    Serial.print("IR RECEIVED -> Protocol: ");
+    Serial.print(IrReceiver.decodedIRData.protocol);
+    Serial.print(" | Command: ");
+    Serial.println(IrReceiver.decodedIRData.command);
+
+    // If it's a valid NEC signal, print it in the format ir_tracker.py expects
+    if (IrReceiver.decodedIRData.protocol == NEC) {
         Serial.print("ID: ");
-        Serial.println(results.command); // We will send the transponder ID as the NEC 'command' byte
-      }
-      // Resume listening
-      irReceivers[i]->resume(); 
+        Serial.println(IrReceiver.decodedIRData.command);
     }
+    
+    // Resume listening
+    IrReceiver.resume(); 
   }
 }

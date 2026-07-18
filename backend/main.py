@@ -70,18 +70,30 @@ def on_lap_recorded(lap_data: dict):
     except Exception as e:
         print(f"Error broadcasting lap: {e}")
 
+def on_debug_message(message: str):
+    try:
+        asyncio.run_coroutine_threadsafe(
+            manager.broadcast(json.dumps({
+                "type": "debug_log",
+                "message": message
+            })),
+            app.state.loop
+        )
+    except Exception:
+        pass
+
 @app.on_event("startup")
 async def startup_event():
     app.state.loop = asyncio.get_running_loop()
     from . import models
     from .database import SessionLocal
     db = SessionLocal()
-    setting = db.query(models.AppSetting).filter(models.AppSetting.key == 'tracking_method').first()
-    if setting and setting.value == 'ir_serial':
-        tracker.active_tracker = 'ir_serial'
+    settings = db.query(models.AppSetting).all()
+    config = {s.key: s.value for s in settings}
+    tracker.update_settings(config)
     db.close()
-
-    tracker.start(lap_callback=on_lap_recorded)
+    
+    tracker.start(lap_callback=on_lap_recorded, debug_callback=on_debug_message)
 
 @app.on_event("shutdown")
 def shutdown_event():
@@ -330,6 +342,40 @@ async def flash_sensor_bar():
     except Exception as e:
         if was_active:
             tracker.start(lap_callback=on_lap_recorded)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+class TransponderFlashRequest(BaseModel):
+    droid_id: int
+
+@app.post("/api/settings/flash_transponder")
+async def flash_transponder(req: TransponderFlashRequest):
+    import os
+    import subprocess
+    import re
+    
+    project_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'ir_hardware', 'transponder')
+    main_cpp = os.path.join(project_dir, 'src', 'main.cpp')
+    
+    try:
+        with open(main_cpp, 'r') as f:
+            content = f.read()
+            
+        content = re.sub(r'const uint16_t TRANSPONDER_ID\s*=\s*\d+;', f'const uint16_t TRANSPONDER_ID = {req.droid_id};', content)
+        
+        with open(main_cpp, 'w') as f:
+            f.write(content)
+            
+        result = subprocess.run(
+            ["pio", "run", "-d", project_dir, "-t", "upload"],
+            capture_output=True,
+            text=True
+        )
+
+        if result.returncode == 0:
+            return {"status": "success", "log": result.stdout}
+        else:
+            raise HTTPException(status_code=500, detail=result.stderr or result.stdout)
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 @app.get("/api/droids")

@@ -7,6 +7,7 @@ const Markers = () => {
   const [markerId, setMarkerId] = useState(0);
   const [dictionary, setDictionary] = useState('DICT_4X4_50');
   const [settings, setSettings] = useState<Record<string, string>>({});
+  const [trackingMethod, setTrackingMethod] = useState('camera');
 
   useEffect(() => {
     fetch('/api/settings')
@@ -16,6 +17,9 @@ const Markers = () => {
         if (data.aruco_dict) {
           setDictionary(data.aruco_dict);
         }
+        if (data.tracking_method) {
+          setTrackingMethod(data.tracking_method);
+        }
       });
   }, []);
 
@@ -24,6 +28,20 @@ const Markers = () => {
   };
 
   const getMarkerUrl = (id: number) => `/api/markers/${id}?dictionary=${dictionary}&size=1000`;
+
+  if (trackingMethod === 'ir_serial') {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-center h-[60vh] animate-in fade-in slide-in-from-bottom-4 duration-700">
+        <div className="w-24 h-24 bg-indigo-900/30 rounded-full flex items-center justify-center mb-6">
+          <AlertTriangle className="w-12 h-12 text-indigo-500" />
+        </div>
+        <h2 className="text-3xl font-bold mb-4 text-white">IR Transponders Active</h2>
+        <p className="text-slate-400 max-w-lg text-lg">
+          You are currently using Serial IR Transponders to track laps. There is no need to print physical ArUco tags.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">

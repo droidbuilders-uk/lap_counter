@@ -39,9 +39,6 @@ function App() {
                 <Link to="/debug" className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-slate-300 ${theme === 'droid' ? 'hover:bg-slate-800' : 'hover:bg-zinc-800'} hover:text-white transition-colors`}>
                   <Terminal className="w-4 h-4" /> Debug
                 </Link>
-                <Link to="/markers" className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-slate-300 ${theme === 'droid' ? 'hover:bg-slate-800' : 'hover:bg-zinc-800'} hover:text-white transition-colors`}>
-                  <Cpu className="w-4 h-4" /> Tag Maker
-                </Link>
               </div>
             </div>
           </div>

@@ -8,9 +8,10 @@ import numpy as np
 class IRTracker:
     def __init__(self):
         self.lap_callback = None
+        self.debug_callback = None
         self.active_race_id = None
         self.serial_port = '/dev/ttyUSB0'
-        self.baud_rate = 9600
+        self.baud_rate = 115200
         self.ser = None
         self.running = False
         self.thread = None
@@ -37,18 +38,31 @@ class IRTracker:
 
         try:
             import serial
+            import serial.tools.list_ports
         except ImportError:
             print("pyserial is not installed! Cannot use IR Tracker.")
             return
 
-        try:
-            self.ser = serial.Serial(self.serial_port, self.baud_rate, timeout=1)
-            print(f"IRTracker connected to {self.serial_port}")
-        except Exception as e:
-            print(f"IRTracker error connecting to {self.serial_port}: {e}")
+        target_port = self.serial_port
+        available_ports = [p.device for p in serial.tools.list_ports.comports()]
+        
+        if target_port not in available_ports:
+            # Look for any USB serial port
+            usb_ports = [p for p in available_ports if 'USB' in p or 'ACM' in p]
+            if usb_ports:
+                print(f"IRTracker: Port {target_port} not found. Auto-switching to {usb_ports[0]}")
+                target_port = usb_ports[0]
+                self.serial_port = target_port
 
-    def start(self, lap_callback):
+        try:
+            self.ser = serial.Serial(target_port, self.baud_rate, timeout=1)
+            print(f"IRTracker connected to {target_port}")
+        except Exception as e:
+            print(f"IRTracker error connecting to {target_port}: {e}")
+
+    def start(self, lap_callback, debug_callback=None):
         self.lap_callback = lap_callback
+        self.debug_callback = debug_callback
         self.running = True
         self._reconnect()
         self.thread = threading.Thread(target=self._run_loop, daemon=True)
@@ -72,6 +86,11 @@ class IRTracker:
                 line = self.ser.readline()
                 if line:
                     decoded = line.decode('utf-8', errors='ignore').strip()
+                    if decoded and self.debug_callback:
+                        import datetime
+                        ts = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
+                        self.debug_callback(f"[{ts}] {decoded}")
+
                     # ESP32 could send just the ID, or "ID 42", or "ID: 42"
                     if decoded.isdigit():
                         self._record_lap(int(decoded))
@@ -82,6 +101,12 @@ class IRTracker:
                             self._record_lap(int(match.group()))
             except Exception as e:
                 print(f"IRTracker read error: {e}")
+                if self.ser:
+                    try:
+                        self.ser.close()
+                    except Exception:
+                        pass
+                    self.ser = None
                 time.sleep(1)
 
     def _record_lap(self, marker_id):

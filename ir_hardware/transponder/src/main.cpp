@@ -4,14 +4,22 @@
 // ==========================================
 // CONFIGURATION
 // Change this ID for each different car!
-const uint16_t TRANSPONDER_ID = 42; 
+const uint16_t TRANSPONDER_ID = 41; 
 // ==========================================
 
 // For ATtiny85, Pin PB1 corresponds to physical Pin 6 on the DIP chip.
 // This is the default timer pin for IRremote.
 #define IR_SEND_PIN 1
 
+#include <avr/power.h>
+
 void setup() {
+  // Factory ATtiny chips have a "Divide by 8" fuse set by default, making them run at 1MHz.
+  // This command forces the chip back up to its true 8MHz speed dynamically!
+  if (F_CPU == 8000000) {
+    clock_prescale_set(clock_div_1);
+  }
+
   // Initialize IR Sender.
   // 38kHz is the carrier frequency required for TSOP38238 receivers.
   IrSender.begin(IR_SEND_PIN); 

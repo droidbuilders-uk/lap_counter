@@ -26,3 +26,11 @@ frontend/dist-ssr
 *.deb
 build/
 .ruff_cache/
+
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+*.elf
+*.bin
+*.hex

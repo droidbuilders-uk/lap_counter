@@ -210,10 +210,25 @@ class CameraTracker:
                     grabber = FrameGrabber(cap)
 
             if not cap.isOpened():
+                is_ir_mode = self.settings.get("tracking_method", "camera") == "ir_serial"
+                if is_ir_mode:
+                    import numpy as np
+                    img = np.zeros((480, 640, 3), dtype=np.uint8)
+                    cv2.putText(img, "IR Mode Active - No Camera Connected", (80, 240), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 255), 2)
+                    cv2.putText(img, "Select a valid camera in Settings to view feed.", (80, 280), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (150, 150, 150), 1)
+                    _, buffer = cv2.imencode('.jpg', img)
+                    self.latest_frame = buffer.tobytes()
+                    time.sleep(2)
+                    continue
+
                 print(f"ERROR: Camera {current_camera_idx} is not opened. Attempting to reconnect...")
                 self.latest_frame = None
-                time.sleep(2)
+                time.sleep(5)
                 grabber.stop()
+                
+                import os
+                os.environ["OPENCV_LOG_LEVEL"] = "FATAL"
+                
                 cap = cv2.VideoCapture(current_camera_idx)
                 if cap.isOpened():
                     print(f"DEBUG: Successfully re-opened camera {current_camera_idx}")
@@ -248,6 +263,15 @@ class CameraTracker:
             if show_debug:
                 cv2.putText(ui_frame, f"FPS: {int(current_fps)} | Res: {width}x{height}", (10, 30),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            
+            # --- BYPASS ARUCO IF IR MODE ---
+            if self.settings.get("tracking_method", "camera") == "ir_serial":
+                cv2.putText(ui_frame, "IR Mode Active - Visual Monitoring Only", (10, height - 20),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 255), 2)
+                _, buffer = cv2.imencode('.jpg', ui_frame)
+                self.latest_frame = buffer.tobytes()
+                continue
+
             # if fps_counter % 30 == 0:
             #     print(f"DEBUG: Processing frame {width}x{height} @ {int(current_fps)} FPS. "
             #           f"Camera: {current_camera_idx}")

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
-import { Settings as SettingsIcon, Save, Monitor, ArrowDownUp, AlertTriangle, Camera, Cpu, Flag, Radio, Usb, Zap } from 'lucide-react';
+import { Settings as SettingsIcon, Save, Monitor, ArrowDownUp, AlertTriangle, Camera, Cpu, Flag, Radio, Usb, Zap, Printer } from 'lucide-react';
 
 interface CameraDevice {
   index: number;
@@ -19,6 +20,8 @@ export default function Settings() {
   const [cameras, setCameras] = useState<CameraDevice[]>([]);
   const [saved, setSaved] = useState(false);
   const [flashing, setFlashing] = useState(false);
+  const [flashingTransponder, setFlashingTransponder] = useState(false);
+  const [transponderId, setTransponderId] = useState(42);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -103,6 +106,28 @@ export default function Settings() {
     }
   };
 
+  const handleFlashTransponder = async () => {
+    if (confirm(`Ensure your ATtiny is connected via your USBasp programmer. This will compile and flash ID ${transponderId} natively. Continue?`)) {
+      setFlashingTransponder(true);
+      try {
+        const res = await fetch('/api/settings/flash_transponder', { 
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ droid_id: transponderId })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          alert(`Successfully flashed ATtiny with ID ${transponderId}!`);
+        } else {
+          alert("Failed to flash:\n\n" + data.detail);
+        }
+      } catch (e) {
+        alert("Error flashing: " + e);
+      }
+      setFlashingTransponder(false);
+    }
+  };
+
   return (
     <div className="space-y-8 max-w-3xl mx-auto">
       <div>
@@ -115,8 +140,43 @@ export default function Settings() {
 
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl space-y-8">
         
-        {/* Lap Direction */}
+        {/* Tracking Method Selection */}
         <div>
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-white">
+            <Radio className="w-5 h-5 text-indigo-500" /> Tracking Method
+          </h2>
+          <p className="text-sm text-slate-400 mb-4">
+            Select how lap times are recorded.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <label className={`cursor-pointer p-4 rounded-xl border flex flex-col gap-3 transition-colors ${trackingMethod === 'camera' ? 'bg-indigo-900/20 border-indigo-500' : 'bg-slate-950 border-slate-800 hover:border-slate-700'}`}>
+              <input type="radio" className="hidden" name="tracking" value="camera" checked={trackingMethod === 'camera'} onChange={() => setTrackingMethod('camera')} />
+              <div className="flex items-center gap-3">
+                 <div className="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center">
+                  <Camera className="w-5 h-5 text-indigo-500" />
+                </div>
+                <div className="font-medium text-slate-200">Camera (OpenCV ArUco)</div>
+              </div>
+              <p className="text-xs text-slate-500">Track visual tags using a USB webcam or Raspberry Pi camera module.</p>
+            </label>
+
+            <label className={`cursor-pointer p-4 rounded-xl border flex flex-col gap-3 transition-colors ${trackingMethod === 'ir_serial' ? 'bg-indigo-900/20 border-indigo-500' : 'bg-slate-950 border-slate-800 hover:border-slate-700'}`}>
+              <input type="radio" className="hidden" name="tracking" value="ir_serial" checked={trackingMethod === 'ir_serial'} onChange={() => setTrackingMethod('ir_serial')} />
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center">
+                  <Radio className="w-5 h-5 text-indigo-500" />
+                </div>
+                <div className="font-medium text-slate-200">IR Transponders (Serial)</div>
+              </div>
+              <p className="text-xs text-slate-500">Track active IR transmitters via an ESP32 or serial receiver.</p>
+            </label>
+          </div>
+        </div>
+
+        <hr className="border-slate-800" />
+
+        {/* Lap Direction */}
+        <div className={`transition-all ${trackingMethod !== 'camera' ? 'opacity-50 pointer-events-none' : ''}`}>
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-white">
             <ArrowDownUp className="w-5 h-5 text-blue-500" /> Lap Trigger Direction
           </h2>
@@ -150,41 +210,6 @@ export default function Settings() {
                 <ArrowDownUp className="w-6 h-6 text-blue-500 absolute rotate-180" />
               </div>
               <span className="font-medium text-slate-200">Both Directions</span>
-            </label>
-          </div>
-        </div>
-
-        <hr className="border-slate-800" />
-
-        {/* Tracking Method Selection */}
-        <div>
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-white">
-            <Radio className="w-5 h-5 text-indigo-500" /> Tracking Method
-          </h2>
-          <p className="text-sm text-slate-400 mb-4">
-            Select how lap times are recorded.
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <label className={`cursor-pointer p-4 rounded-xl border flex flex-col gap-3 transition-colors ${trackingMethod === 'camera' ? 'bg-indigo-900/20 border-indigo-500' : 'bg-slate-950 border-slate-800 hover:border-slate-700'}`}>
-              <input type="radio" className="hidden" name="tracking" value="camera" checked={trackingMethod === 'camera'} onChange={() => setTrackingMethod('camera')} />
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center">
-                  <Camera className="w-5 h-5 text-indigo-500" />
-                </div>
-                <div className="font-medium text-slate-200">Camera (OpenCV ArUco)</div>
-              </div>
-              <p className="text-xs text-slate-500">Track visual tags using a USB webcam or Raspberry Pi camera module.</p>
-            </label>
-
-            <label className={`cursor-pointer p-4 rounded-xl border flex flex-col gap-3 transition-colors ${trackingMethod === 'ir_serial' ? 'bg-indigo-900/20 border-indigo-500' : 'bg-slate-950 border-slate-800 hover:border-slate-700'}`}>
-              <input type="radio" className="hidden" name="tracking" value="ir_serial" checked={trackingMethod === 'ir_serial'} onChange={() => setTrackingMethod('ir_serial')} />
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-slate-900 rounded-lg flex items-center justify-center">
-                  <Radio className="w-5 h-5 text-indigo-500" />
-                </div>
-                <div className="font-medium text-slate-200">IR Transponders (Serial)</div>
-              </div>
-              <p className="text-xs text-slate-500">Track active IR transmitters via an ESP32 or serial receiver.</p>
             </label>
           </div>
         </div>
@@ -251,6 +276,31 @@ export default function Settings() {
                 {flashing ? 'Flashing...' : 'Flash Device'}
               </button>
             </div>
+
+            <div className="mt-4 flex items-center justify-between bg-slate-900 border border-slate-800 p-4 rounded-xl">
+              <div className="flex-1 mr-4">
+                <h3 className="text-white font-medium text-sm">Flash Transponder (ATtiny)</h3>
+                <p className="text-xs text-slate-400">Program an ATtiny transponder with a specific ID. Ensure your programmer is connected to USB!</p>
+                <div className="mt-2 flex items-center gap-3">
+                  <label className="text-sm text-slate-300">Transponder ID:</label>
+                  <input 
+                    type="number" 
+                    min="1" max="65535"
+                    value={transponderId} 
+                    onChange={(e) => setTransponderId(parseInt(e.target.value) || 1)}
+                    className="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1 text-white w-24 focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              </div>
+              <button 
+                onClick={handleFlashTransponder}
+                disabled={flashingTransponder}
+                className="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors shrink-0"
+              >
+                {flashingTransponder ? <span className="animate-spin text-lg">↻</span> : <Zap className="w-4 h-4" />}
+                {flashingTransponder ? 'Flashing...' : 'Flash ATtiny'}
+              </button>
+            </div>
           </div>
         )}
 
@@ -292,7 +342,7 @@ export default function Settings() {
         <hr className="border-slate-800" />
 
         {/* ArUco Dictionary Selection */}
-        <div>
+        <div className={`transition-all ${trackingMethod !== 'camera' ? 'opacity-50 pointer-events-none' : ''}`}>
           <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-white">
             <Cpu className="w-5 h-5 text-blue-500" /> ArUco Tag Dictionary
           </h2>
@@ -314,6 +364,19 @@ export default function Settings() {
                 <span className="text-xs text-slate-500">{dict.desc}</span>
               </label>
             ))}
+          </div>
+          
+          <div className="mt-6 flex items-center justify-between bg-slate-900 border border-slate-800 p-4 rounded-xl">
+            <div>
+              <h3 className="text-white font-medium text-sm">Tag Generator</h3>
+              <p className="text-xs text-slate-400">Open the tool to generate and print tracking tags for competitors.</p>
+            </div>
+            <Link 
+              to="/markers"
+              className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
+            >
+              <Printer className="w-4 h-4" /> Print Tags
+            </Link>
           </div>
         </div>
 
