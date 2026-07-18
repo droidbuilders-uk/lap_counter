@@ -110,6 +110,7 @@ chmod 755 "$DEB_DIR/DEBIAN/prerm"
 # 6. Copy Application Files
 echo "Step 6: Copying application files..."
 cp -r backend "$DEB_DIR/opt/$APP_NAME/"
+mkdir -p "$DEB_DIR/opt/$APP_NAME/frontend"
 cp -r frontend/dist "$DEB_DIR/opt/$APP_NAME/frontend/"
 cp requirements.txt "$DEB_DIR/opt/$APP_NAME/"
 
