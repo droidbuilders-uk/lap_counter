@@ -92,7 +92,7 @@ async def startup_event():
     config = {s.key: s.value for s in settings}
     tracker.update_settings(config)
     db.close()
-    
+
     tracker.start(lap_callback=on_lap_recorded, debug_callback=on_debug_message)
 
 @app.on_event("shutdown")
@@ -350,21 +350,25 @@ class TransponderFlashRequest(BaseModel):
 @app.post("/api/settings/flash_transponder")
 async def flash_transponder(req: TransponderFlashRequest):
     import os
-    import subprocess
     import re
-    
+    import subprocess
+
     project_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'ir_hardware', 'transponder')
     main_cpp = os.path.join(project_dir, 'src', 'main.cpp')
-    
+
     try:
         with open(main_cpp, 'r') as f:
             content = f.read()
-            
-        content = re.sub(r'const uint16_t TRANSPONDER_ID\s*=\s*\d+;', f'const uint16_t TRANSPONDER_ID = {req.droid_id};', content)
-        
+
+        content = re.sub(
+            r'const uint16_t TRANSPONDER_ID\s*=\s*\d+;',
+            f'const uint16_t TRANSPONDER_ID = {req.droid_id};',
+            content
+        )
+
         with open(main_cpp, 'w') as f:
             f.write(content)
-            
+
         result = subprocess.run(
             ["pio", "run", "-d", project_dir, "-t", "upload"],
             capture_output=True,

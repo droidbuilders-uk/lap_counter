@@ -45,7 +45,7 @@ class IRTracker:
 
         target_port = self.serial_port
         available_ports = [p.device for p in serial.tools.list_ports.comports()]
-        
+
         if target_port not in available_ports:
             # Look for any USB serial port
             usb_ports = [p for p in available_ports if 'USB' in p or 'ACM' in p]
