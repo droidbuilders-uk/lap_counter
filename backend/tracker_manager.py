@@ -1,6 +1,7 @@
 from .camera_tracker import tracker as camera_tracker
 from .ir_tracker import IRTracker
 
+
 class TrackerManager:
     def __init__(self):
         self.ir_tracker = IRTracker()
@@ -13,7 +14,7 @@ class TrackerManager:
             new_method = config['tracking_method']
             if new_method != self.active_tracker:
                 self._switch_tracker(new_method)
-        
+
         # Forward settings to both
         camera_tracker.update_settings(config)
         self.ir_tracker.update_settings(config)
@@ -24,9 +25,9 @@ class TrackerManager:
             camera_tracker.stop()
         else:
             self.ir_tracker.stop()
-            
+
         self.active_tracker = new_method
-        
+
         # Start new
         if self.active_tracker == "camera":
             camera_tracker.start(lap_callback=self.lap_callback)

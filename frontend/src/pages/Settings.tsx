@@ -192,7 +192,6 @@ export default function Settings() {
         <hr className="border-slate-800" />
 
         {trackingMethod === 'camera' ? (
-          {/* Camera Selection */}
           <div>
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-white">
               <Camera className="w-5 h-5 text-orange-500" /> Camera Selection
@@ -221,7 +220,6 @@ export default function Settings() {
             </div>
           </div>
         ) : (
-          {/* Serial Port Selection */}
           <div>
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2 text-white">
               <Usb className="w-5 h-5 text-orange-500" /> Serial Port Configuration

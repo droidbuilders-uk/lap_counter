@@ -254,7 +254,7 @@ class CameraTracker:
 
             try:
                 gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-                
+
                 # STAGE 1: Contrast Normalization
                 # Essential for low-contrast cameras or reading tags off phone screens
                 clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))

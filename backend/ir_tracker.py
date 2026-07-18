@@ -1,7 +1,9 @@
 import threading
 import time
+
 import cv2
 import numpy as np
+
 
 class IRTracker:
     def __init__(self):
@@ -12,7 +14,7 @@ class IRTracker:
         self.ser = None
         self.running = False
         self.thread = None
-        
+
         # Create a static image for the video feed
         img = np.zeros((480, 640, 3), dtype=np.uint8)
         cv2.putText(img, "IR Transponder Mode Active", (100, 240), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
@@ -32,7 +34,7 @@ class IRTracker:
     def _reconnect(self):
         if self.ser and self.ser.is_open:
             self.ser.close()
-        
+
         try:
             import serial
         except ImportError:
@@ -65,7 +67,7 @@ class IRTracker:
                 time.sleep(2)
                 self._reconnect()
                 continue
-            
+
             try:
                 line = self.ser.readline()
                 if line:
@@ -86,9 +88,10 @@ class IRTracker:
         if self.active_race_id is None:
             return
 
-        from .database import SessionLocal
-        from . import models
         from datetime import datetime
+
+        from . import models
+        from .database import SessionLocal
         db = SessionLocal()
         try:
             # ONLY TRACK DROIDS IN THE ACTIVE RACE
@@ -121,7 +124,7 @@ class IRTracker:
             db.add(new_lap)
             db.commit()
             db.refresh(new_lap)
-            
+
             if self.lap_callback:
                 self.lap_callback({
                     "droid_id": entry.droid_id,

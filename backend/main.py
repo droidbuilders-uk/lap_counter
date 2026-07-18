@@ -17,8 +17,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from . import models
-from .tracker_manager import tracker
 from .database import engine, get_db
+from .tracker_manager import tracker
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -73,14 +73,14 @@ def on_lap_recorded(lap_data: dict):
 @app.on_event("startup")
 async def startup_event():
     app.state.loop = asyncio.get_running_loop()
-    from .database import SessionLocal
     from . import models
+    from .database import SessionLocal
     db = SessionLocal()
     setting = db.query(models.AppSetting).filter(models.AppSetting.key == 'tracking_method').first()
     if setting and setting.value == 'ir_serial':
         tracker.active_tracker = 'ir_serial'
     db.close()
-    
+
     tracker.start(lap_callback=on_lap_recorded)
 
 @app.on_event("shutdown")
@@ -226,7 +226,7 @@ def list_cameras():
     """List available camera indices on the system."""
     import os
     available_cameras = []
-    
+
     # On Linux, query sysfs directly so we can see cameras even if OpenCV holds a lock on them
     if os.name == 'posix' and os.path.exists('/sys/class/video4linux'):
         import glob
@@ -259,7 +259,7 @@ def list_cameras():
         if cap.isOpened():
             available_cameras.append({"index": i, "name": f"Camera {i}"})
             cap.release()
-            
+
     return available_cameras
 
 @app.post("/api/settings/reset")
@@ -300,10 +300,10 @@ async def reset_races(db: Session = Depends(get_db)):
 
 @app.post("/api/settings/flash_sensor_bar")
 async def flash_sensor_bar():
-    import subprocess
     import os
+    import subprocess
     project_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'ir_hardware', 'sensor_bar')
-    
+
     # Pause the tracker so it completely releases the Serial Port lock!
     was_active = False
     if tracker.active_tracker == "ir_serial":
@@ -317,12 +317,12 @@ async def flash_sensor_bar():
             capture_output=True,
             text=True
         )
-        
+
         # Resume tracker if it was active
         if was_active:
             # Re-read settings just to make sure it grabs the port correctly
             tracker.start(lap_callback=on_lap_recorded)
-            
+
         if result.returncode == 0:
             return {"status": "success", "log": result.stdout}
         else:
@@ -330,7 +330,7 @@ async def flash_sensor_bar():
     except Exception as e:
         if was_active:
             tracker.start(lap_callback=on_lap_recorded)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @app.get("/api/droids")
 def get_droids(db: Session = Depends(get_db)):
