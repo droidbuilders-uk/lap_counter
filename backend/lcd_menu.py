@@ -1,10 +1,10 @@
-import time
-import socket
+import os
 import subprocess
+import sys
+import time
+
 import requests
 import RPi.GPIO as GPIO
-import os
-import sys
 
 # Ensure the backend directory is in the path so we can import rgb1602
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -71,15 +71,15 @@ current_page = 0
 def update_display():
     """Clears and draws the current page"""
     lcd.clear()
-    
+
     # Execute the function for the current page
     text = menu_pages[current_page]()
     lines = text.split('\n')
-    
+
     # Print Line 1
     lcd.setCursor(0, 0)
     lcd.printout(lines[0])
-    
+
     # Print Line 2
     if len(lines) > 1:
         lcd.setCursor(0, 1)
@@ -88,7 +88,7 @@ def update_display():
 if __name__ == "__main__":
     # Initial draw
     update_display()
-    
+
     print("LCD Menu Running...")
     try:
         while True:
@@ -97,7 +97,7 @@ if __name__ == "__main__":
                 current_page = (current_page - 1) % len(menu_pages)
                 update_display()
                 time.sleep(0.3) # Debounce
-                
+
             elif GPIO.input(BTN_DOWN) == 0:
                 current_page = (current_page + 1) % len(menu_pages)
                 update_display()
@@ -106,7 +106,7 @@ if __name__ == "__main__":
             # If on the race page, refresh it occasionally
             if current_page == 0:
                 update_display()
-                
+
             time.sleep(0.1)
 
     except KeyboardInterrupt:

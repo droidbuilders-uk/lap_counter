@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
-import time
 import sys
+import time
+
 import smbus
 
 # Select the driver library according to the type of development board
@@ -126,7 +127,7 @@ class RGB1602:
     b[0]=0x40
     b[1]=data
     self._bus.write_i2c_block_data(LCD_ADDRESS, 0x40, [data])
-    
+
   def setReg(self,reg,data):
     b=bytearray(1)
     b[0]=data
@@ -161,9 +162,9 @@ class RGB1602:
       # note : python2 special character display problem, python3 is recommended
       # arg = arg.decode('utf-8').translate(lcd_charmap).encode('utf-8')
       # pass
-      keys = u"".join([unichr(key) for key in lcd_charmap.keys()])
+      keys = u"".join([chr(key) for key in lcd_charmap.keys()])
       values = u"".join([lcd_charmap[key].decode('latin-1') for key in lcd_charmap.keys()])
-      arg = arg.decode('utf-8').translate({ord(key): ord(value) for key, value in zip(keys, values)})
+      arg = arg.decode('utf-8').translate({ord(key): ord(value) for key, value in zip(keys, values, strict=False)})
     else:
       arg = arg.translate(lcd_charmap)
     for char in arg:
@@ -176,49 +177,49 @@ class RGB1602:
     time.sleep(1)        # this command takes a long time!
 
   def noDisplay(self):
-    self._showcontrol &= ~LCD_DISPLAYON 
+    self._showcontrol &= ~LCD_DISPLAYON
     self.command(LCD_DISPLAYCONTROL | self._showcontrol)
 
   def display(self):
-    self._showcontrol |= LCD_DISPLAYON 
+    self._showcontrol |= LCD_DISPLAYON
     self.command(LCD_DISPLAYCONTROL | self._showcontrol)
 
   def stopBlink(self):
-    self._showcontrol &= ~LCD_BLINKON 
+    self._showcontrol &= ~LCD_BLINKON
     self.command(LCD_DISPLAYCONTROL | self._showcontrol)
 
   def blink(self):
-    self._showcontrol |= LCD_BLINKON 
+    self._showcontrol |= LCD_BLINKON
     self.command(LCD_DISPLAYCONTROL | self._showcontrol)
 
   def noCursor(self):
-    self._showcontrol &= ~LCD_CURSORON 
+    self._showcontrol &= ~LCD_CURSORON
     self.command(LCD_DISPLAYCONTROL | self._showcontrol)
 
   def cursor(self):
-    self._showcontrol |= LCD_CURSORON 
+    self._showcontrol |= LCD_CURSORON
     self.command(LCD_DISPLAYCONTROL | self._showcontrol)
 
   def leftToRight(self):
-    self._showmode |= LCD_ENTRYLEFT 
+    self._showmode |= LCD_ENTRYLEFT
     self.command(LCD_ENTRYMODESET | self._showmode)
 
   def rightToLeft(self):
-    self._showmode &= ~LCD_ENTRYLEFT 
+    self._showmode &= ~LCD_ENTRYLEFT
     self.command(LCD_ENTRYMODESET | self._showmode)
 
   def noAutoscroll(self):
-    self._showmode &= ~LCD_ENTRYSHIFTINCREMENT 
+    self._showmode &= ~LCD_ENTRYSHIFTINCREMENT
     self.command(LCD_ENTRYMODESET | self._showmode)
 
   def autoscroll(self):
-    self._showmode |= LCD_ENTRYSHIFTINCREMENT 
+    self._showmode |= LCD_ENTRYSHIFTINCREMENT
     self.command(LCD_ENTRYMODESET | self._showmode)
 
   def customSymbol(self,location, charmap):
     location &= 0x7  # we only have 8 locations 0-7
     self.command(LCD_SETCGRAMADDR | (location << 3))
-    
+
     for i in range(0,8):
       self._bus.write_i2c_block_data(LCD_ADDRESS, 0x40, [charmap[i]])
 
@@ -256,22 +257,22 @@ class RGB1602:
 
   def printstr(self,c):
     #/< This function is not identical to the function used for "real" I2C displays
-    #/< it's here so the user sketch doesn't have to be changed 
+    #/< it's here so the user sketch doesn't have to be changed
     self.printout(c)
- 
+
 
 #*******************************private*******************************#
   def begin(self,cols,lines,dotsize=LCD_5x8DOTS):
     if (lines > 1):
-        self._showfunction |= LCD_2LINE 
-     
-    self._numlines = lines 
-    self._currline = 0 
+        self._showfunction |= LCD_2LINE
+
+    self._numlines = lines
+    self._currline = 0
 
     # for some 1 line displays you can select a 10 pixel high font
     if ((dotsize != 0) and (lines == 1)) :
-        self._showfunction |= LCD_5x10DOTS 
-     
+        self._showfunction |= LCD_5x10DOTS
+
     # SEE PAGE 45/46 FOR INITIALIZATION SPECIFICATION!
     # according to datasheet, we need at least 40ms after power rises above 2.7V
     # before sending commands. Arduino can turn on way befer 4.5V so we'll wait 50
@@ -282,11 +283,11 @@ class RGB1602:
     # page 45 figure 23
 
     # Send function set command sequence
-    self.command(LCD_FUNCTIONSET | self._showfunction);
+    self.command(LCD_FUNCTIONSET | self._showfunction)
     #delayMicroseconds(4500);  # wait more than 4.1ms
     time.sleep(0.005)
     # second try
-    self.command(LCD_FUNCTIONSET | self._showfunction);
+    self.command(LCD_FUNCTIONSET | self._showfunction)
     #delayMicroseconds(150);
     time.sleep(0.005)
     # third go
@@ -294,14 +295,14 @@ class RGB1602:
     # finally, set # lines, font size, etc.
     self.command(LCD_FUNCTIONSET | self._showfunction)
     # turn the display on with no cursor or blinking default
-    self._showcontrol = LCD_DISPLAYON | LCD_CURSOROFF | LCD_BLINKOFF 
+    self._showcontrol = LCD_DISPLAYON | LCD_CURSOROFF | LCD_BLINKOFF
     self.display()
     # clear it off
     self.clear()
     # Initialize to default text direction (for romance languages)
-    self._showmode = LCD_ENTRYLEFT | LCD_ENTRYSHIFTDECREMENT 
+    self._showmode = LCD_ENTRYLEFT | LCD_ENTRYSHIFTDECREMENT
     # set the entry mode
-    self.command(LCD_ENTRYMODESET | self._showmode);
+    self.command(LCD_ENTRYMODESET | self._showmode)
     # backlight init
     self.setReg(REG_MODE1, 0)
     # set LEDs controllable by both PWM and GRPPWM registers
@@ -313,9 +314,9 @@ class RGB1602:
 
   def setColorWhite(self):
     self.setRGB(255, 255, 255)
-    
+
   def setPWM(self,color,pwm):
     self.setReg(color, pwm)
-    
+
   def setColorAll(self):
     self.setRGB(0, 0, 0)

@@ -106,15 +106,13 @@ jobs:
           gzip -9c dists/stable/main/binary-arm64/Packages > dists/stable/main/binary-arm64/Packages.gz
 
           # Generate Release file
-          cat <<EOF > apt-release.conf
-APT::FTPArchive::Release::Origin "LapCounter Pro";
-APT::FTPArchive::Release::Label "LapCounter Pro";
-APT::FTPArchive::Release::Suite "stable";
-APT::FTPArchive::Release::Codename "stable";
-APT::FTPArchive::Release::Architectures "amd64 arm64";
-APT::FTPArchive::Release::Components "main";
-APT::FTPArchive::Release::Description "ArUco Tag Lap Counter Repository";
-EOF
+          echo 'APT::FTPArchive::Release::Origin "LapCounter Pro";' > apt-release.conf
+          echo 'APT::FTPArchive::Release::Label "LapCounter Pro";' >> apt-release.conf
+          echo 'APT::FTPArchive::Release::Suite "stable";' >> apt-release.conf
+          echo 'APT::FTPArchive::Release::Codename "stable";' >> apt-release.conf
+          echo 'APT::FTPArchive::Release::Architectures "amd64 arm64";' >> apt-release.conf
+          echo 'APT::FTPArchive::Release::Components "main";' >> apt-release.conf
+          echo 'APT::FTPArchive::Release::Description "ArUco Tag Lap Counter Repository";' >> apt-release.conf
           apt-ftparchive -c apt-release.conf release dists/stable > dists/stable/Release
           rm apt-release.conf
 
