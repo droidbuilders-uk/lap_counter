@@ -216,14 +216,42 @@ def update_settings(settings: List[SettingUpdate], db: Session = Depends(get_db)
 @app.get("/api/settings/cameras")
 def list_cameras():
     """List available camera indices on the system."""
-    import cv2
+    import os
     available_cameras = []
-    # Check indices 0-5. Usually enough for most systems.
+    
+    # On Linux, query sysfs directly so we can see cameras even if OpenCV holds a lock on them
+    if os.name == 'posix' and os.path.exists('/sys/class/video4linux'):
+        import glob
+        devices = glob.glob('/sys/class/video4linux/video*')
+        for dev in devices:
+            try:
+                idx = int(os.path.basename(dev).replace('video', ''))
+                name_path = os.path.join(dev, 'name')
+                if os.path.exists(name_path):
+                    with open(name_path, 'r') as f:
+                        name = f.read().strip()
+                else:
+                    name = f"Camera {idx}"
+                available_cameras.append({"index": idx, "name": f"{name} (idx: {idx})"})
+            except Exception:
+                pass
+        available_cameras.sort(key=lambda x: x["index"])
+        return available_cameras
+
+    # Fallback for Windows / Mac
+    import cv2
+    backend = cv2.CAP_ANY
+    try:
+        cv2.setLogLevel(0) # LOG_LEVEL_SILENT
+    except AttributeError:
+        pass
+
     for i in range(6):
-        cap = cv2.VideoCapture(i)
+        cap = cv2.VideoCapture(i, backend)
         if cap.isOpened():
             available_cameras.append({"index": i, "name": f"Camera {i}"})
             cap.release()
+            
     return available_cameras
 
 @app.post("/api/settings/reset")

@@ -29,7 +29,7 @@ export default function Debug() {
               />
               
               {/* Overlay HUD */}
-              <div className="absolute top-4 left-4 flex gap-2">
+              <div className="absolute bottom-4 left-4 flex gap-2">
                 <div className="bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg border border-white/10 text-xs font-mono text-emerald-400 flex items-center gap-2">
                   <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
                   FEED_ACTIVE
