@@ -75,6 +75,9 @@ if ! id -u $APP_NAME > /dev/null 2>&1; then
     useradd -m -r -s /bin/false $APP_NAME
 fi
 
+# Ensure user has access to camera and GPIO/I2C
+usermod -a -G video,i2c,gpio $APP_NAME || true
+
 chown -R $APP_NAME:$APP_NAME "\$APP_DIR"
 chmod -R 755 "\$APP_DIR"
 
@@ -128,6 +131,7 @@ WorkingDirectory=/opt/$APP_NAME
 Environment="PATH=/opt/$APP_NAME/.venv/bin"
 ExecStart=/opt/$APP_NAME/.venv/bin/uvicorn backend.main:app --host 0.0.0.0 --port 8000
 Restart=always
+TimeoutStopSec=5
 
 [Install]
 WantedBy=multi-user.target
@@ -145,6 +149,7 @@ WorkingDirectory=/opt/$APP_NAME
 Environment="PATH=/opt/$APP_NAME/.venv/bin"
 ExecStart=/opt/$APP_NAME/.venv/bin/python3 backend/lcd_menu.py
 Restart=always
+TimeoutStopSec=5
 
 [Install]
 WantedBy=multi-user.target
