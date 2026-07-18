@@ -184,6 +184,7 @@ class CameraTracker:
             ret, frame = cap.read()
             if not ret:
                 print(f"WARNING: Failed to read frame from camera {current_camera_idx}")
+                self.latest_frame = None  # Clear the frozen frame so the UI knows it's offline
                 time.sleep(0.5)
                 continue
 
@@ -208,111 +209,115 @@ class CameraTracker:
             #     print(f"DEBUG: Processing frame {width}x{height} @ {int(current_fps)} FPS. "
             #           f"Camera: {current_camera_idx}")
 
-            # Digital Brightness/Gain Boost for high-speed modes
-            # alpha=1.5 (gain), beta=50 (brightness offset)
-            frame = cv2.convertScaleAbs(frame, alpha=1.5, beta=50)
+            try:
+                # Digital Brightness/Gain Boost for high-speed modes
+                # alpha=1.5 (gain), beta=50 (brightness offset)
+                frame = cv2.convertScaleAbs(frame, alpha=1.5, beta=50)
 
-            # Downsample and correct aspect ratio if needed
-            target_width = 320
-            target_height = 240
-            if width == 640 and height == 400:
-                gray = cv2.resize(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY), (target_width, target_height))
-            else:
-                gray = cv2.resize(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY),
-                                  (target_width, int(target_width * height / width)))
-            # STAGE 1: Contrast Normalization
-            # CLAHE is better than equalizeHist as it limits noise amplification
-            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-            gray = clahe.apply(gray)
+                # Downsample and correct aspect ratio if needed
+                target_width = 320
+                target_height = 240
+                if width == 640 and height == 400:
+                    gray = cv2.resize(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY), (target_width, target_height))
+                else:
+                    gray = cv2.resize(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY),
+                                      (target_width, int(target_width * height / width)))
+                # STAGE 1: Contrast Normalization
+                # CLAHE is better than equalizeHist as it limits noise amplification
+                clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+                gray = clahe.apply(gray)
 
-            def detect(img, d_obj, d_params, d_detector):
-                try:
-                    c, i, _ = aruco.detectMarkers(img, d_obj, parameters=d_params)
-                except AttributeError:
-                    c, i, _ = d_detector.detectMarkers(img)
-                return c, i
+                def detect(img, d_obj, d_params, d_detector):
+                    try:
+                        c, i, _ = aruco.detectMarkers(img, d_obj, parameters=d_params)
+                    except AttributeError:
+                        c, i, _ = d_detector.detectMarkers(img)
+                    return c, i
 
-            # Try normal and mirrored (some high-speed modes are flipped)
-            corners, ids = detect(gray, aruco_dict, aruco_params, detector)
-            is_mirrored = False
+                # Try normal and mirrored (some high-speed modes are flipped)
+                corners, ids = detect(gray, aruco_dict, aruco_params, detector)
+                is_mirrored = False
 
-            if ids is None:
-                corners, ids = detect(cv2.flip(gray, 1), aruco_dict, aruco_params, detector)
+                if ids is None:
+                    corners, ids = detect(cv2.flip(gray, 1), aruco_dict, aruco_params, detector)
+                    if ids is not None:
+                        is_mirrored = True
+
+                # Rescale corners back to original resolution
                 if ids is not None:
-                    is_mirrored = True
+                    ratio_x = width / target_width
+                    ratio_y = height / target_height
 
-            # Rescale corners back to original resolution
-            if ids is not None:
-                ratio_x = width / target_width
-                ratio_y = height / target_height
+                    # Make a copy of corners to avoid modifying them while iterating
+                    rescaled_corners = []
+                    for corner in corners:
+                        # corner shape is (1, 4, 2)
+                        c = corner[0].copy() # Get the 4 points
+                        if is_mirrored:
+                            # Un-flip the x coordinates
+                            c[:, 0] = target_width - c[:, 0]
+                        c[:, 0] *= ratio_x
+                        c[:, 1] *= ratio_y
+                        rescaled_corners.append(c.reshape(1, 4, 2))
+                    corners = rescaled_corners
 
-                # Make a copy of corners to avoid modifying them while iterating
-                rescaled_corners = []
-                for corner in corners:
-                    # corner shape is (1, 4, 2)
-                    c = corner[0].copy() # Get the 4 points
-                    if is_mirrored:
-                        # Un-flip the x coordinates
-                        c[:, 0] = target_width - c[:, 0]
-                    c[:, 0] *= ratio_x
-                    c[:, 1] *= ratio_y
-                    rescaled_corners.append(c.reshape(1, 4, 2))
-                corners = rescaled_corners
+                    # if fps_counter % 30 == 0:
+                    #     print(f"DEBUG: Detected {len(ids)} tags! Mirrored: {is_mirrored}")
+                    for i in range(len(ids)):
+                        marker_id = int(ids[i][0])
+                        # Get center point of marker
+                        c = corners[i][0]
+                        center_y = int((c[0][1] + c[2][1]) / 2)
+                        center_x = int((c[0][0] + c[2][0]) / 2)
 
-                # if fps_counter % 30 == 0:
-                #     print(f"DEBUG: Detected {len(ids)} tags! Mirrored: {is_mirrored}")
-                for i in range(len(ids)):
-                    marker_id = int(ids[i][0])
-                    # Get center point of marker
-                    c = corners[i][0]
-                    center_y = int((c[0][1] + c[2][1]) / 2)
-                    center_x = int((c[0][0] + c[2][0]) / 2)
+                        if show_debug:
+                            # Draw marker outline and ID
+                            cv2.polylines(ui_frame, [c.astype(int)], True, (0, 255, 0), 2)
+                            cv2.putText(ui_frame, f"ID: {marker_id}", (int(c[0][0]), int(c[0][1]) - 10),
+                                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                            cv2.circle(ui_frame, (center_x, center_y), 4, (255, 0, 0), -1)
 
-                    if show_debug:
-                        # Draw marker outline and ID
-                        cv2.polylines(ui_frame, [c.astype(int)], True, (0, 255, 0), 2)
-                        cv2.putText(ui_frame, f"ID: {marker_id}", (int(c[0][0]), int(c[0][1]) - 10),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-                        cv2.circle(ui_frame, (center_x, center_y), 4, (255, 0, 0), -1)
+                        # ONLY TRACK DROIDS IN THE ACTIVE RACE
+                        if marker_id not in self.valid_aruco_ids:
+                            continue
 
-                    # ONLY TRACK DROIDS IN THE ACTIVE RACE
-                    if marker_id not in self.valid_aruco_ids:
-                        continue
+                        current_time = time.time()
 
-                    current_time = time.time()
+                        is_cooling_down = False
+                        if marker_id in last_cross_time:
+                            if (current_time - last_cross_time[marker_id]) < COOLDOWN_SECONDS:
+                                is_cooling_down = True
 
-                    is_cooling_down = False
-                    if marker_id in last_cross_time:
-                        if (current_time - last_cross_time[marker_id]) < COOLDOWN_SECONDS:
-                            is_cooling_down = True
+                        if not is_cooling_down:
+                            if marker_id in previous_positions:
+                                prev_y = previous_positions[marker_id]
 
-                    if not is_cooling_down:
-                        if marker_id in previous_positions:
-                            prev_y = previous_positions[marker_id]
+                                crossed_down = prev_y <= finish_line_y and center_y > finish_line_y
+                                crossed_up = prev_y >= finish_line_y and center_y < finish_line_y
 
-                            crossed_down = prev_y <= finish_line_y and center_y > finish_line_y
-                            crossed_up = prev_y >= finish_line_y and center_y < finish_line_y
+                                direction = self.settings.get("lap_direction", "down")
+                                is_lap = False
 
-                            direction = self.settings.get("lap_direction", "down")
-                            is_lap = False
+                                if direction == 'down' and crossed_down:
+                                    is_lap = True
+                                elif direction == 'up' and crossed_up:
+                                    is_lap = True
+                                elif direction == 'both' and (crossed_down or crossed_up):
+                                    is_lap = True
 
-                            if direction == 'down' and crossed_down:
-                                is_lap = True
-                            elif direction == 'up' and crossed_up:
-                                is_lap = True
-                            elif direction == 'both' and (crossed_down or crossed_up):
-                                is_lap = True
+                                if is_lap:
+                                    last_cross_time[marker_id] = current_time
+                                    self._record_lap(marker_id)
 
-                            if is_lap:
-                                last_cross_time[marker_id] = current_time
-                                self._record_lap(marker_id)
+                            previous_positions[marker_id] = center_y
 
-                        previous_positions[marker_id] = center_y
-
-            # Finally encode the frame for the web UI AFTER drawing all overlays
-            ret_encode, jpeg = cv2.imencode('.jpg', ui_frame)
-            if ret_encode:
-                self.latest_frame = jpeg.tobytes()
+                # Finally encode the frame for the web UI AFTER drawing all overlays
+                ret_encode, jpeg = cv2.imencode('.jpg', ui_frame)
+                if ret_encode:
+                    self.latest_frame = jpeg.tobytes()
+            except Exception as e:
+                print(f"ERROR: Exception in camera loop: {e}")
+                time.sleep(1)
 
         cap.release()
 

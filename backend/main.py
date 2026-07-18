@@ -131,11 +131,13 @@ class SettingUpdate(BaseModel):
 
 # --- API Endpoints ---
 def generate_frames():
+    last_frame = None
     while True:
         frame = tracker.latest_frame
-        if frame is None:
-            time.sleep(0.1)
+        if frame is None or frame == last_frame:
+            time.sleep(0.03)  # Wait for a new frame (approx 30fps)
             continue
+        last_frame = frame
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
