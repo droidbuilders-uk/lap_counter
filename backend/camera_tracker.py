@@ -84,13 +84,12 @@ class CameraTracker:
             c.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
             c.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             c.set(cv2.CAP_PROP_FPS, 60)
-            c.set(cv2.CAP_PROP_BUFFERSIZE, 1) # CRITICAL: Drops old frames to prevent 2-second lag on Pi
+            c.set(cv2.CAP_PROP_BUFFERSIZE, 1)
             time.sleep(1)
             try:
                 device = f"/dev/video{idx}"
-                subprocess.run(["v4l2-ctl", "-d", device, "-c", "auto_exposure=1"], timeout=2)
-                subprocess.run(["v4l2-ctl", "-d", device, "-c", "exposure_dynamic_framerate=0"], timeout=2)
-                subprocess.run(["v4l2-ctl", "-d", device, "-c", "exposure_time_absolute=150"], timeout=2)
+                # 3 is Aperture Priority Auto Exposure in v4l2 (1 is manual)
+                subprocess.run(["v4l2-ctl", "-d", device, "-c", "auto_exposure=3"], timeout=2)
             except Exception as e:
                 print(f"Warning: Could not set v4l2 hardware settings for {idx}: {e}")
 
@@ -98,6 +97,35 @@ class CameraTracker:
 
         if not cap.isOpened():
             print(f"Error: Could not open camera {current_camera_idx}.")
+
+        # --- DEDICATED FRAME GRABBER THREAD ---
+        # This thread's ONLY job is to pull frames out of the OS buffer as fast as possible.
+        # This completely eliminates the 2-second OpenCV lag on Raspberry Pi.
+        class FrameGrabber:
+            def __init__(self, capture):
+                self.capture = capture
+                self.ret = False
+                self.frame = None
+                self.running = True
+                self.thread = threading.Thread(target=self.update, daemon=True)
+                self.thread.start()
+
+            def update(self):
+                while self.running:
+                    if self.capture.isOpened():
+                        self.ret, self.frame = self.capture.read()
+                    else:
+                        time.sleep(0.1)
+
+            def read(self):
+                return self.ret, self.frame
+
+            def stop(self):
+                self.running = False
+                if self.thread.is_alive():
+                    self.thread.join()
+
+        grabber = FrameGrabber(cap)
 
         # Mapping for dictionaries
         dict_mapping = {
@@ -165,6 +193,7 @@ class CameraTracker:
                         detector = aruco.ArucoDetector(aruco_dict, aruco_params)
 
                 if new_camera_idx != current_camera_idx:
+                    grabber.stop()
                     cap.release()
                     current_camera_idx = new_camera_idx
                     cap = cv2.VideoCapture(current_camera_idx)
@@ -173,23 +202,25 @@ class CameraTracker:
                         setup_camera(cap, current_camera_idx)
                     else:
                         print(f"ERROR: Failed to open camera {current_camera_idx}")
+                    grabber = FrameGrabber(cap)
 
             if not cap.isOpened():
                 print(f"ERROR: Camera {current_camera_idx} is not opened. Attempting to reconnect...")
-                # Clear stale frame if camera is lost for more than 2 seconds
                 self.latest_frame = None
                 time.sleep(2)
+                grabber.stop()
                 cap = cv2.VideoCapture(current_camera_idx)
                 if cap.isOpened():
                     print(f"DEBUG: Successfully re-opened camera {current_camera_idx}")
                     setup_camera(cap, current_camera_idx)
+                grabber = FrameGrabber(cap)
                 continue
 
-            ret, frame = cap.read()
-            if not ret:
-                print(f"WARNING: Failed to read frame from camera {current_camera_idx}")
+            ret, frame = grabber.read()
+            if not ret or frame is None:
+                # Only warn if it's been failing for a while
                 self.latest_frame = None  # Clear the frozen frame so the UI knows it's offline
-                time.sleep(0.5)
+                time.sleep(0.1)
                 continue
 
             fps_counter += 1
@@ -216,18 +247,13 @@ class CameraTracker:
             try:
                 # OPTIMIZATION: Region of Interest (ROI) Cropping
                 # We only care about cars crossing the finish line (center of screen).
-                # By cropping the top and bottom 25% of the image BEFORE processing,
-                # we reduce the pixel count by 50%, doubling the ArUco detector's FPS!
                 roi_y_start = height // 4
                 roi_y_end = 3 * height // 4
                 roi_frame = frame[roi_y_start:roi_y_end, :]
 
-                # Downsample and correct aspect ratio if needed
-                target_width = 320
-                ratio = target_width / width
-                target_height = int((roi_y_end - roi_y_start) * ratio)
-                
-                gray = cv2.resize(cv2.cvtColor(roi_frame, cv2.COLOR_BGR2GRAY), (target_width, target_height))
+                # DO NOT DOWNSAMPLE! Downsampling causes small ArUco tags to blur
+                # out and fail detection completely. The Pi 4 can handle 640x240 easily.
+                gray = cv2.cvtColor(roi_frame, cv2.COLOR_BGR2GRAY)
 
                 def detect(img, d_obj, d_params, d_detector):
                     try:
@@ -247,19 +273,14 @@ class CameraTracker:
 
                 # Rescale corners back to original resolution and add ROI offset
                 if ids is not None:
-                    ratio_x = width / target_width
-                    ratio_y = (roi_y_end - roi_y_start) / target_height
-
                     # Make a copy of corners to avoid modifying them while iterating
                     rescaled_corners = []
                     for corner in corners:
                         # corner shape is (1, 4, 2)
                         c = corner[0].copy() # Get the 4 points
                         if is_mirrored:
-                            # Un-flip the x coordinates
-                            c[:, 0] = target_width - c[:, 0]
-                        c[:, 0] *= ratio_x
-                        c[:, 1] *= ratio_y
+                            # Un-flip the x coordinates (since we didn't resize, width is full width)
+                            c[:, 0] = width - c[:, 0]
                         # Add the ROI vertical offset back so it aligns with the full UI frame
                         c[:, 1] += roi_y_start
                         rescaled_corners.append(c.reshape(1, 4, 2))
@@ -323,6 +344,7 @@ class CameraTracker:
                 print(f"ERROR: Exception in camera loop: {e}")
                 time.sleep(1)
 
+        grabber.stop()
         cap.release()
 
     def _record_lap(self, aruco_id):
