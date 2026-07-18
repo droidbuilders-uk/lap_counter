@@ -71,6 +71,27 @@ You can start both the backend server and the frontend development server simult
 
 Then, open your web browser and navigate to `http://localhost:5173`.
 
+## Creating a Release
+
+This project uses GitHub Actions to automatically build and publish `.deb` packages for `amd64` and `arm64` architectures. To trigger a new release:
+
+1. Update the version number in the `VERSION` file at the root of the repository.
+2. Commit your changes:
+   ```bash
+   git commit -am "Bump version to 1.0.6"
+   ```
+3. Create a Git tag starting with `v` (matching your new version):
+   ```bash
+   git tag v1.0.6
+   ```
+4. Push the commit and the tags to GitHub:
+   ```bash
+   git push origin main
+   git push origin --tags
+   ```
+
+The GitHub Action will automatically run, build the packages, and update the `gh-pages` APT repository.
+
 ## License
 
 This project is licensed under the **GNU General Public License v2.0** - see the [LICENSE](LICENSE) file for details.
