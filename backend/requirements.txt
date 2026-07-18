@@ -4,5 +4,6 @@ websockets
 sqlalchemy
 opencv-contrib-python
 pyserial
+platformio
 numpy
 pydantic

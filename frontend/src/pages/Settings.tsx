@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '../context/ThemeContext';
-import { Settings as SettingsIcon, Save, Monitor, ArrowDownUp, AlertTriangle, Camera, Cpu, Flag, Radio, Usb } from 'lucide-react';
+import { Settings as SettingsIcon, Save, Monitor, ArrowDownUp, AlertTriangle, Camera, Cpu, Flag, Radio, Usb, Zap } from 'lucide-react';
 
 interface CameraDevice {
   index: number;
@@ -18,6 +18,7 @@ export default function Settings() {
   const [serialPort, setSerialPort] = useState('/dev/ttyUSB0');
   const [cameras, setCameras] = useState<CameraDevice[]>([]);
   const [saved, setSaved] = useState(false);
+  const [flashing, setFlashing] = useState(false);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -81,6 +82,24 @@ export default function Settings() {
       await fetch('/api/settings/reset_races', { method: 'POST' });
       alert('Race history has been cleared.');
       window.location.reload();
+    }
+  };
+
+  const handleFlashSensorBar = async () => {
+    if (confirm("Ensure the ESP32 is plugged in via USB and your settings are saved. This will compile and flash the firmware natively. Continue?")) {
+      setFlashing(true);
+      try {
+        const res = await fetch('/api/settings/flash_sensor_bar', { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          alert("Successfully compiled and flashed to the ESP32!");
+        } else {
+          alert("Failed to flash:\n\n" + data.detail);
+        }
+      } catch (e) {
+        alert("Error flashing: " + e);
+      }
+      setFlashing(false);
     }
   };
 
@@ -219,6 +238,20 @@ export default function Settings() {
                 className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
                 placeholder="/dev/ttyUSB0"
               />
+            </div>
+            <div className="mt-4 flex items-center justify-between bg-slate-900 border border-slate-800 p-4 rounded-xl">
+              <div>
+                <h3 className="text-white font-medium text-sm">Update Firmware</h3>
+                <p className="text-xs text-slate-400">Compile and upload the latest code directly to the ESP32 via PlatformIO.</p>
+              </div>
+              <button 
+                onClick={handleFlashSensorBar}
+                disabled={flashing}
+                className="bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors"
+              >
+                {flashing ? <span className="animate-spin text-lg">↻</span> : <Zap className="w-4 h-4" />}
+                {flashing ? 'Flashing...' : 'Flash Device'}
+              </button>
             </div>
           </div>
         )}

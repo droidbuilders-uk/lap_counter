@@ -298,6 +298,40 @@ async def reset_races(db: Session = Depends(get_db)):
 
     return {"status": "ok"}
 
+@app.post("/api/settings/flash_sensor_bar")
+async def flash_sensor_bar():
+    import subprocess
+    import os
+    project_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'ir_hardware', 'sensor_bar')
+    
+    # Pause the tracker so it completely releases the Serial Port lock!
+    was_active = False
+    if tracker.active_tracker == "ir_serial":
+        tracker.stop()
+        was_active = True
+
+    try:
+        # Run PlatformIO natively via Python
+        result = subprocess.run(
+            ["pio", "run", "-d", project_dir, "-t", "upload"],
+            capture_output=True,
+            text=True
+        )
+        
+        # Resume tracker if it was active
+        if was_active:
+            # Re-read settings just to make sure it grabs the port correctly
+            tracker.start(lap_callback=on_lap_recorded)
+            
+        if result.returncode == 0:
+            return {"status": "success", "log": result.stdout}
+        else:
+            raise HTTPException(status_code=500, detail=result.stderr or result.stdout)
+    except Exception as e:
+        if was_active:
+            tracker.start(lap_callback=on_lap_recorded)
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/droids")
 def get_droids(db: Session = Depends(get_db)):
     return db.query(models.Droid).all()
