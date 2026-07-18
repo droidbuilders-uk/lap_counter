@@ -392,7 +392,16 @@ class CameraTracker:
                 Lap.droid_id == droid.id
             ).order_by(Lap.lap_number.desc()).first()
 
-            lap_num = 1 if not prev_lap else prev_lap.lap_number + 1
+            lap_num = 1
+            if prev_lap and prev_lap.lap_number is not None:
+                lap_num = prev_lap.lap_number + 1
+            elif prev_lap:
+                # Count existing laps for this droid if lap_number is None
+                lap_num = db.query(Lap).filter(
+                    Lap.race_id == self.active_race_id,
+                    Lap.droid_id == droid.id
+                ).count() + 1
+
             now = datetime.utcnow()
             race = db.query(Race).filter(Race.id == self.active_race_id).first()
 

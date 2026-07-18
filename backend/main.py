@@ -91,6 +91,12 @@ async def startup_event():
     settings = db.query(models.AppSetting).all()
     config = {s.key: s.value for s in settings}
     tracker.update_settings(config)
+
+    # Sync active race if the server restarted during a race
+    active_race = db.query(models.Race).filter(models.Race.status == 'active').first()
+    if active_race:
+        tracker.set_active_race(active_race.id)
+
     db.close()
 
     tracker.start(lap_callback=on_lap_recorded, debug_callback=on_debug_message)

@@ -22,6 +22,7 @@ export default function Settings() {
   const [flashing, setFlashing] = useState(false);
   const [flashingTransponder, setFlashingTransponder] = useState(false);
   const [transponderId, setTransponderId] = useState(42);
+  const [irDebounce, setIrDebounce] = useState(5);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -34,6 +35,7 @@ export default function Settings() {
       setArucoDict(data.aruco_dict || 'DICT_4X4_50');
       setTrackingMethod(data.tracking_method || 'camera');
       setSerialPort(data.serial_port || '/dev/ttyUSB0');
+      setIrDebounce(parseInt(data.ir_debounce_seconds) || 5);
     };
     
     const fetchCameras = async () => {
@@ -61,7 +63,8 @@ export default function Settings() {
         { key: 'theme', value: theme },
         { key: 'aruco_dict', value: arucoDict },
         { key: 'tracking_method', value: trackingMethod },
-        { key: 'serial_port', value: serialPort }
+        { key: 'serial_port', value: serialPort },
+        { key: 'ir_debounce_seconds', value: irDebounce.toString() }
       ])
     });
     // Trigger theme update on root if changed
@@ -258,8 +261,17 @@ export default function Settings() {
                 type="text" 
                 value={serialPort} 
                 onChange={(e) => setSerialPort(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500 mb-4"
                 placeholder="/dev/ttyUSB0"
+              />
+              <label className="block text-sm font-medium text-slate-300 mb-2">IR Debounce Time (seconds)</label>
+              <p className="text-xs text-slate-400 mb-2">Prevents racking up laps if a droid stops on the finish line. Resets when the droid is seen.</p>
+              <input 
+                type="number" 
+                min="1" max="60"
+                value={irDebounce} 
+                onChange={(e) => setIrDebounce(parseInt(e.target.value) || 5)}
+                className="w-full sm:w-32 bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
               />
             </div>
             <div className="mt-4 flex items-center justify-between bg-slate-900 border border-slate-800 p-4 rounded-xl">
