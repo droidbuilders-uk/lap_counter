@@ -5,3 +5,6 @@ python-multipart
 opencv-contrib-python
 numpy
 jinja2
+requests
+smbus
+RPi.GPIO
