@@ -1,13 +1,13 @@
 Package: lapcounter
-Version: 1.0.4
+Version: 1.0.6
 Architecture: amd64
 Maintainer: Droid Builders UK <info@droidbuilders.uk>
-Depends: python3, python3-venv, python3-pip, libgl1-mesa-glx, libglib2.0-0, v4l-utils
-Filename: pool/main/lapcounter_1.0.4_amd64.deb
-Size: 97788
-MD5sum: 58bc3f108bfb54f298eca0c0cef983cb
-SHA1: 18e86e4bb733ee2b0f7b15d989b964bb31872735
-SHA256: 486741120b1043eee1c151e6963af13bf42b2033088abf78684a39b1de4ea613
+Depends: python3, python3-venv, python3-pip, python3-dev, gcc, i2c-tools, libgl1, libglib2.0-0, v4l-utils
+Filename: pool/main/lapcounter_1.0.6_amd64.deb
+Size: 101786
+MD5sum: ebd3b4b8238d78ff8ca6c7a5ae29bfc3
+SHA1: d8bf0953cf89f028fe1501de3ed9bdf596134202
+SHA256: bfad177aac57e94ddc91e49aa293a7bcc49047a4c8d48e068807a375d830db69
 Section: utils
 Priority: optional
 Description: ArUco Tag Lap Counter Pro
