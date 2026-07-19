@@ -19,28 +19,28 @@ except ImportError:
 lcd = rgb1602.RGB1602(16, 2)
 lcd.setRGB(0, 128, 64) # Default green background
 
-# Setup Buttons (BCM Numbering)
+# Setup Buttons (BCM Numbering for DFRobot HAT)
 BTN_UP = 17
 BTN_DOWN = 18
 BTN_SELECT = 16
 
 GPIO.setmode(GPIO.BCM)
-GPIO.setup(BTN_UP, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-GPIO.setup(BTN_DOWN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-GPIO.setup(BTN_SELECT, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+GPIO.setup(BTN_UP, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+GPIO.setup(BTN_DOWN, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+GPIO.setup(BTN_SELECT, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
 
 # --- Info Gathering Functions ---
 def get_ip():
     try:
         # Gets the primary IP
-        ip = subprocess.check_output(['hostname', '-I']).decode('utf-8').split()[0]
+        ip = subprocess.check_output(['/usr/bin/hostname', '-I']).decode('utf-8').split()[0]
         return f"IP Address:\n{ip}"
     except:
         return "IP Address:\nOffline"
 
 def get_wifi():
     try:
-        ssid = subprocess.check_output(['iwgetid', '-r']).decode('utf-8').strip()
+        ssid = subprocess.check_output(['/usr/sbin/iwgetid', '-r']).decode('utf-8').strip()
         if not ssid:
             return "WiFi Network:\nDisconnected"
         return f"WiFi Network:\n{ssid}"
@@ -58,7 +58,7 @@ def get_race_status():
 
 def get_system_temp():
     try:
-        temp = subprocess.check_output(['vcgencmd', 'measure_temp']).decode('utf-8').strip()
+        temp = subprocess.check_output(['/usr/bin/vcgencmd', 'measure_temp']).decode('utf-8').strip()
         temp = temp.replace("temp=", "").replace("'C", " C")
         return f"System Temp:\n{temp}"
     except:
@@ -67,13 +67,20 @@ def get_system_temp():
 # --- Menu System ---
 menu_pages = [get_race_status, get_ip, get_wifi, get_system_temp]
 current_page = 0
+last_text = ""
 
-def update_display():
-    """Clears and draws the current page"""
-    lcd.clear()
-
-    # Execute the function for the current page
+def update_display(force=False):
+    """Clears and draws the current page only if it changed"""
+    global last_text
+    
     text = menu_pages[current_page]()
+    
+    if text == last_text and not force:
+        return
+        
+    last_text = text
+    lcd.clear()
+    
     lines = text.split('\n')
 
     # Print Line 1
@@ -91,21 +98,29 @@ if __name__ == "__main__":
 
     print("LCD Menu Running...")
     try:
+        last_interaction = time.time()
         while True:
-            # Note: pull-up resistors mean pressed = LOW (0)
-            if GPIO.input(BTN_UP) == 0:
+            # DFRobot buttons are Active High (pull to 3.3V when pressed)
+            if GPIO.input(BTN_UP) == 1:
                 current_page = (current_page - 1) % len(menu_pages)
-                update_display()
+                update_display(force=True)
+                last_interaction = time.time()
                 time.sleep(0.3) # Debounce
 
-            elif GPIO.input(BTN_DOWN) == 0:
+            elif GPIO.input(BTN_DOWN) == 1:
                 current_page = (current_page + 1) % len(menu_pages)
-                update_display()
+                update_display(force=True)
+                last_interaction = time.time()
                 time.sleep(0.3) # Debounce
+                
+            # Auto-scroll pages every 8 seconds if no buttons are pressed
+            if time.time() - last_interaction > 8.0:
+                current_page = (current_page + 1) % len(menu_pages)
+                update_display(force=True)
+                last_interaction = time.time()
 
-            # If on the race page, refresh it occasionally
-            if current_page == 0:
-                update_display()
+            # Refresh the current page gracefully if data changed natively
+            update_display(force=False)
 
             time.sleep(0.1)
 
