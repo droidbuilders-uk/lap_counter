@@ -122,10 +122,10 @@ class IRTracker:
                         current_time = time.time()
                         debounce_secs = int(self.settings.get("ir_debounce_seconds", "5"))
                         last_seen = self.last_seen_times.get(marker_id, 0)
-                        
+
                         if current_time - last_seen > debounce_secs:
                             self._record_lap(marker_id)
-                        
+
                         # Reset the timer every time we see the marker!
                         self.last_seen_times[marker_id] = current_time
 
