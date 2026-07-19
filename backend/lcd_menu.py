@@ -72,15 +72,15 @@ last_text = ""
 def update_display(force=False):
     """Clears and draws the current page only if it changed"""
     global last_text
-    
+
     text = menu_pages[current_page]()
-    
+
     if text == last_text and not force:
         return
-        
+
     last_text = text
     lcd.clear()
-    
+
     lines = text.split('\n')
 
     # Print Line 1
@@ -112,7 +112,7 @@ if __name__ == "__main__":
                 update_display(force=True)
                 last_interaction = time.time()
                 time.sleep(0.3) # Debounce
-                
+
             # Auto-scroll pages every 8 seconds if no buttons are pressed
             if time.time() - last_interaction > 8.0:
                 current_page = (current_page + 1) % len(menu_pages)
