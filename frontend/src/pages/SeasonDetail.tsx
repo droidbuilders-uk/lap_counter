@@ -1,7 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Medal, Flag, Timer, ChevronRight, Play, Trophy } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+
+interface Season {
+  id: number;
+  name: string;
+  created_at: string;
+}
 
 interface Droid {
   id: number;
@@ -29,7 +35,7 @@ interface Race {
 export default function SeasonDetail() {
   const { id } = useParams();
   const { labels } = useTheme();
-  const [season, setSeason] = useState<any>(null);
+  const [season, setSeason] = useState<Season | null>(null);
   const [races, setRaces] = useState<Race[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   
@@ -42,7 +48,8 @@ export default function SeasonDetail() {
   const [selectedDroids, setSelectedDroids] = useState<number[]>([]);
   const [duration, setDuration] = useState(240);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
+    if (!id) return;
     const res = await fetch(`/api/seasons/${id}`);
     const data = await res.json();
     setSeason(data.season);
@@ -53,11 +60,11 @@ export default function SeasonDetail() {
     
     const droidsRes = await fetch('/api/droids');
     setDroids(await droidsRes.json());
-  };
+  }, [id]);
 
   useEffect(() => {
     fetchData();
-  }, [id]);
+  }, [fetchData]);
 
   const openModal = (type: 'heat' | 'final', editRace?: Race) => {
     setRaceClass(type);

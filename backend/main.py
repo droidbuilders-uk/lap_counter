@@ -4,7 +4,7 @@ import json
 import os
 import time
 from datetime import datetime
-from typing import List, Optional
+from typing import List
 
 import cv2
 import cv2.aruco as aruco
@@ -14,13 +14,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from . import models
 from .database import engine, get_db
 from .tracker_manager import tracker
-
-from sqlalchemy import text
 
 try:
     with engine.begin() as conn:
@@ -483,7 +482,7 @@ def update_race(race_id: int, race: RaceUpdate, db: Session = Depends(get_db)):
     db_race = db.query(models.Race).filter(models.Race.id == race_id).first()
     if not db_race:
         raise HTTPException(status_code=404, detail="Race not found")
-        
+
     if db_race.status != "pending":
         raise HTTPException(status_code=400, detail="Cannot edit a race that has already started")
 
@@ -657,18 +656,18 @@ def get_season(season_id: int, db: Session = Depends(get_db)):
 def get_season_leaderboard(season_id: int, db: Session = Depends(get_db)):
     # Calculate stats across all 'heat' class races in this season
     heats = db.query(models.Race).filter(
-        models.Race.season_id == season_id, 
+        models.Race.season_id == season_id,
         models.Race.race_class == 'heat',
         models.Race.status == 'finished'
     ).all()
-    
+
     heat_ids = [h.id for h in heats]
     if not heat_ids:
         return []
 
     # Get all laps in these heats
     laps = db.query(models.Lap).filter(models.Lap.race_id.in_(heat_ids)).all()
-    
+
     # Calculate per droid stats
     stats = {}
     for lap in laps:
@@ -679,14 +678,14 @@ def get_season_leaderboard(season_id: int, db: Session = Depends(get_db)):
                 "fastest_lap_ms": 999999999,
                 "heat_laps": {} # race_id -> lap count
             }
-        
+
         if lap.lap_time_ms < stats[droid_id]["fastest_lap_ms"]:
             stats[droid_id]["fastest_lap_ms"] = lap.lap_time_ms
-            
+
         stats[droid_id]["heat_laps"][lap.race_id] = stats[droid_id]["heat_laps"].get(lap.race_id, 0) + 1
 
     leaderboard = []
-    for d_id, stat in stats.items():
+    for _d_id, stat in stats.items():
         most_laps = max(stat["heat_laps"].values()) if stat["heat_laps"] else 0
         leaderboard.append({
             "droid": stat["droid"],
@@ -694,7 +693,7 @@ def get_season_leaderboard(season_id: int, db: Session = Depends(get_db)):
             "most_laps": most_laps,
             "heats_entered": len(stat["heat_laps"])
         })
-        
+
     # Sort primarily by most laps, then by fastest lap
     leaderboard.sort(key=lambda x: (-x["most_laps"], x["fastest_lap_ms"] if x["fastest_lap_ms"] else 999999999))
     return leaderboard
