@@ -7,6 +7,7 @@ Each participating droid requires an active IR transponder.
 - **Microcontroller**: ATtiny45V-10PU (Low-voltage version prevents brown-outs on coin cell batteries).
 - **IR LED**: TSAL6400 (High-power, narrow beam IR emitter).
 - **Wiring**: The IR LED must be connected to **PB1 (Pin 6)** on the ATtiny. It is highly recommended to drive the LED via a small NPN transistor (like a 2N2222) instead of connecting it directly. This allows the battery to send high-current power to the LED without frying the ATtiny chip.
+- **Power**: The entire transponder circuit can be powered by a standard 3V CR2032 coin cell battery or a small 3.7V LiPo battery. Connect the positive (+) terminal to Pin 8 (VCC) and the negative (-) terminal to Pin 4 (GND). Using the low-voltage `ATtiny45V` variant is important here because it prevents the chip from crashing (browning out) when the battery dips during heavy LED pulses.
 - **Flashing the Code**: You don't need any complex programming software! LapCounter Pro has a built-in flashing tool.
   1. Plug your USBasp or SparkFun Tiny AVR Programmer directly into the Raspberry Pi's USB port.
   2. Insert the ATtiny chip into the programmer.

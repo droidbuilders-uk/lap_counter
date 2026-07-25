@@ -21,6 +21,14 @@ class AppSetting(Base):
     key = Column(String, primary_key=True, index=True)
     value = Column(String)
 
+class Season(Base):
+    __tablename__ = "seasons"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    races = relationship("Race", back_populates="season")
+
 class Race(Base):
     __tablename__ = "races"
 
@@ -33,7 +41,12 @@ class Race(Base):
     race_type = Column(String, default="time") # 'time' or 'laps'
     duration_seconds = Column(Integer, default=240) # Default 4 mins
     max_laps = Column(Integer, default=10) # Default 10 laps
+    
+    # Season properties
+    season_id = Column(Integer, ForeignKey("seasons.id"), nullable=True)
+    race_class = Column(String, default="adhoc") # 'adhoc', 'heat', 'final'
 
+    season = relationship("Season", back_populates="races")
     laps = relationship("Lap", back_populates="race")
     entries = relationship("RaceEntry", back_populates="race")
 

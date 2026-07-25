@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
-import { Settings, Flag, LayoutDashboard, Cpu, Trophy, Terminal } from 'lucide-react';
+import { Settings, Flag, LayoutDashboard, Cpu, Trophy, Terminal, Medal } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import Droids from './pages/Droids';
 import Races from './pages/Races';
@@ -7,6 +7,8 @@ import SettingsPage from './pages/Settings';
 import RaceResults from './pages/RaceResults';
 import Debug from './pages/Debug';
 import Markers from './pages/Markers';
+import Seasons from './pages/Seasons';
+import SeasonDetail from './pages/SeasonDetail';
 import { useTheme } from './context/ThemeContext';
 
 function App() {
@@ -27,8 +29,11 @@ function App() {
                 <Link to="/" className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-slate-300 ${theme === 'droid' ? 'hover:bg-slate-800' : 'hover:bg-zinc-800'} hover:text-white transition-colors`}>
                   <LayoutDashboard className="w-4 h-4" /> Live Timing
                 </Link>
+                <Link to="/seasons" className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-slate-300 ${theme === 'droid' ? 'hover:bg-slate-800' : 'hover:bg-zinc-800'} hover:text-white transition-colors`}>
+                  <Medal className="w-4 h-4" /> Championships
+                </Link>
                 <Link to="/races" className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-slate-300 ${theme === 'droid' ? 'hover:bg-slate-800' : 'hover:bg-zinc-800'} hover:text-white transition-colors`}>
-                  <Flag className="w-4 h-4" /> Race Control
+                  <Flag className="w-4 h-4" /> Adhoc Races
                 </Link>
                 <Link to="/droids" className={`flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium text-slate-300 ${theme === 'droid' ? 'hover:bg-slate-800' : 'hover:bg-zinc-800'} hover:text-white transition-colors`}>
                   {theme === 'droid' ? <Cpu className="w-4 h-4" /> : <Trophy className="w-4 h-4" />} {labels.garage}
@@ -51,6 +56,8 @@ function App() {
             <Route path="/droids" element={<Droids />} />
             <Route path="/races" element={<Races />} />
             <Route path="/races/:id" element={<RaceResults />} />
+            <Route path="/seasons" element={<Seasons />} />
+            <Route path="/seasons/:id" element={<SeasonDetail />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/debug" element={<Debug />} />
             <Route path="/markers" element={<Markers />} />

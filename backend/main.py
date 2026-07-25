@@ -4,7 +4,7 @@ import json
 import os
 import time
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 import cv2
 import cv2.aruco as aruco
@@ -19,6 +19,15 @@ from sqlalchemy.orm import Session
 from . import models
 from .database import engine, get_db
 from .tracker_manager import tracker
+
+from sqlalchemy import text
+
+try:
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE races ADD COLUMN season_id INTEGER REFERENCES seasons(id)"))
+        conn.execute(text("ALTER TABLE races ADD COLUMN race_class VARCHAR DEFAULT 'adhoc'"))
+except Exception:
+    pass # columns already exist
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -144,12 +153,23 @@ class DroidCreate(BaseModel):
     aruco_id: int
     color_hex: str = "#ffffff"
 
+class SeasonCreate(BaseModel):
+    name: str
+
 class RaceCreate(BaseModel):
     name: str
     race_type: str = "time"
     duration_seconds: int = 240
     max_laps: int = 10
-    droid_ids: List[int]
+    season_id: int | None = None
+    race_class: str = "adhoc"
+    droid_ids: list[int]
+
+class RaceUpdate(BaseModel):
+    name: str | None = None
+    duration_seconds: int | None = None
+    max_laps: int | None = None
+    droid_ids: list[int] | None = None
 
 class SettingUpdate(BaseModel):
     key: str
@@ -443,7 +463,9 @@ def create_race(race: RaceCreate, db: Session = Depends(get_db)):
         name=race.name,
         race_type=race.race_type,
         duration_seconds=race.duration_seconds,
-        max_laps=race.max_laps
+        max_laps=race.max_laps,
+        season_id=race.season_id,
+        race_class=race.race_class
     )
     db.add(db_race)
     db.commit()
@@ -454,6 +476,34 @@ def create_race(race: RaceCreate, db: Session = Depends(get_db)):
         db.add(entry)
     db.commit()
 
+    return db_race
+
+@app.put("/api/races/{race_id}")
+def update_race(race_id: int, race: RaceUpdate, db: Session = Depends(get_db)):
+    db_race = db.query(models.Race).filter(models.Race.id == race_id).first()
+    if not db_race:
+        raise HTTPException(status_code=404, detail="Race not found")
+        
+    if db_race.status != "pending":
+        raise HTTPException(status_code=400, detail="Cannot edit a race that has already started")
+
+    if race.name is not None:
+        db_race.name = race.name
+    if race.duration_seconds is not None:
+        db_race.duration_seconds = race.duration_seconds
+    if race.max_laps is not None:
+        db_race.max_laps = race.max_laps
+
+    if race.droid_ids is not None:
+        # Delete old entries
+        db.query(models.RaceEntry).filter(models.RaceEntry.race_id == race_id).delete()
+        # Add new entries
+        for droid_id in race.droid_ids:
+            entry = models.RaceEntry(race_id=race_id, droid_id=droid_id)
+            db.add(entry)
+
+    db.commit()
+    db.refresh(db_race)
     return db_race
 
 @app.get("/api/races/active")
@@ -568,6 +618,87 @@ async def stop_race(race_id: int, db: Session = Depends(get_db)):
     }))
 
     return race
+
+# --- Seasons Endpoints ---
+
+@app.get("/api/seasons")
+def get_seasons(db: Session = Depends(get_db)):
+    return db.query(models.Season).order_by(models.Season.id.desc()).all()
+
+@app.post("/api/seasons")
+def create_season(season: SeasonCreate, db: Session = Depends(get_db)):
+    db_season = models.Season(name=season.name)
+    db.add(db_season)
+    db.commit()
+    db.refresh(db_season)
+    return db_season
+
+@app.get("/api/seasons/{season_id}")
+def get_season(season_id: int, db: Session = Depends(get_db)):
+    season = db.query(models.Season).filter(models.Season.id == season_id).first()
+    if not season:
+        raise HTTPException(status_code=404, detail="Season not found")
+    races = db.query(models.Race).filter(models.Race.season_id == season_id).order_by(models.Race.id.desc()).all()
+    races_data = []
+    for r in races:
+        entries = [e.droid_id for e in db.query(models.RaceEntry).filter(models.RaceEntry.race_id == r.id).all()]
+        races_data.append({
+            "id": r.id,
+            "name": r.name,
+            "status": r.status,
+            "race_class": r.race_class,
+            "duration_seconds": r.duration_seconds,
+            "max_laps": r.max_laps,
+            "droid_ids": entries
+        })
+    return {"season": season, "races": races_data}
+
+@app.get("/api/seasons/{season_id}/leaderboard")
+def get_season_leaderboard(season_id: int, db: Session = Depends(get_db)):
+    # Calculate stats across all 'heat' class races in this season
+    heats = db.query(models.Race).filter(
+        models.Race.season_id == season_id, 
+        models.Race.race_class == 'heat',
+        models.Race.status == 'finished'
+    ).all()
+    
+    heat_ids = [h.id for h in heats]
+    if not heat_ids:
+        return []
+
+    # Get all laps in these heats
+    laps = db.query(models.Lap).filter(models.Lap.race_id.in_(heat_ids)).all()
+    
+    # Calculate per droid stats
+    stats = {}
+    for lap in laps:
+        droid_id = lap.droid_id
+        if droid_id not in stats:
+            stats[droid_id] = {
+                "droid": db.query(models.Droid).filter(models.Droid.id == droid_id).first(),
+                "fastest_lap_ms": 999999999,
+                "heat_laps": {} # race_id -> lap count
+            }
+        
+        if lap.lap_time_ms < stats[droid_id]["fastest_lap_ms"]:
+            stats[droid_id]["fastest_lap_ms"] = lap.lap_time_ms
+            
+        stats[droid_id]["heat_laps"][lap.race_id] = stats[droid_id]["heat_laps"].get(lap.race_id, 0) + 1
+
+    leaderboard = []
+    for d_id, stat in stats.items():
+        most_laps = max(stat["heat_laps"].values()) if stat["heat_laps"] else 0
+        leaderboard.append({
+            "droid": stat["droid"],
+            "fastest_lap_ms": stat["fastest_lap_ms"] if stat["fastest_lap_ms"] != 999999999 else None,
+            "most_laps": most_laps,
+            "heats_entered": len(stat["heat_laps"])
+        })
+        
+    # Sort primarily by most laps, then by fastest lap
+    leaderboard.sort(key=lambda x: (-x["most_laps"], x["fastest_lap_ms"] if x["fastest_lap_ms"] else 999999999))
+    return leaderboard
+
 
 # Serve static files from the React frontend build
 # This must be at the end to avoid shadowing /api routes

@@ -4,7 +4,7 @@
 // ==========================================
 // CONFIGURATION
 // Change this ID for each different car!
-const uint16_t TRANSPONDER_ID = 41; 
+const uint16_t TRANSPONDER_ID = 39; 
 // ==========================================
 
 // For ATtiny85, Pin PB1 corresponds to physical Pin 6 on the DIP chip.
