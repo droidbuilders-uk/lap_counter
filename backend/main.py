@@ -28,6 +28,14 @@ try:
 except Exception:
     pass # columns already exist
 
+try:
+    # Attempt to drop the unique index on aruco_id if it exists from older schema
+    with engine.begin() as conn:
+        conn.execute(text("DROP INDEX IF EXISTS ix_droids_aruco_id"))
+        conn.execute(text("CREATE INDEX ix_droids_aruco_id ON droids (aruco_id)"))
+except Exception:
+    pass
+
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Lap Counter API")
@@ -413,11 +421,6 @@ def get_droids(db: Session = Depends(get_db)):
 
 @app.post("/api/droids")
 def create_droid(droid: DroidCreate, db: Session = Depends(get_db)):
-    # Check if aruco_id is unique
-    existing = db.query(models.Droid).filter(models.Droid.aruco_id == droid.aruco_id).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="ArUco ID already registered")
-
     db_droid = models.Droid(**droid.dict())
     db.add(db_droid)
     db.commit()
@@ -429,11 +432,6 @@ def update_droid(droid_id: int, droid: DroidCreate, db: Session = Depends(get_db
     db_droid = db.query(models.Droid).filter(models.Droid.id == droid_id).first()
     if not db_droid:
         raise HTTPException(status_code=404, detail="Droid not found")
-
-    if droid.aruco_id != db_droid.aruco_id:
-        existing = db.query(models.Droid).filter(models.Droid.aruco_id == droid.aruco_id).first()
-        if existing:
-            raise HTTPException(status_code=400, detail="ArUco ID already registered")
 
     db_droid.name = droid.name
     db_droid.aruco_id = droid.aruco_id
@@ -458,6 +456,12 @@ def get_races(db: Session = Depends(get_db)):
 
 @app.post("/api/races")
 def create_race(race: RaceCreate, db: Session = Depends(get_db)):
+    # Check for duplicate aruco_ids
+    droids = db.query(models.Droid).filter(models.Droid.id.in_(race.droid_ids)).all()
+    aruco_ids = [d.aruco_id for d in droids]
+    if len(aruco_ids) != len(set(aruco_ids)):
+        raise HTTPException(status_code=400, detail="Cannot start race: Multiple droids share the same Transponder ID.")
+
     db_race = models.Race(
         name=race.name,
         race_type=race.race_type,
@@ -494,6 +498,15 @@ def update_race(race_id: int, race: RaceUpdate, db: Session = Depends(get_db)):
         db_race.max_laps = race.max_laps
 
     if race.droid_ids is not None:
+        # Check for duplicate aruco_ids
+        droids = db.query(models.Droid).filter(models.Droid.id.in_(race.droid_ids)).all()
+        aruco_ids = [d.aruco_id for d in droids]
+        if len(aruco_ids) != len(set(aruco_ids)):
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot edit race: Multiple droids share the same Transponder ID."
+            )
+
         # Delete old entries
         db.query(models.RaceEntry).filter(models.RaceEntry.race_id == race_id).delete()
         # Add new entries

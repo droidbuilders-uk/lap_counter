@@ -92,8 +92,9 @@ export default function SeasonDetail() {
     e.preventDefault();
     if (selectedDroids.length === 0) return alert(`Select at least one ${labels.competitor.toLowerCase()}!`);
     
+    let response;
     if (editingRaceId) {
-      await fetch(`/api/races/${editingRaceId}`, {
+      response = await fetch(`/api/races/${editingRaceId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -104,19 +105,25 @@ export default function SeasonDetail() {
         })
       });
     } else {
-      await fetch('/api/races', {
+      response = await fetch('/api/races', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: raceName,
           race_type: 'time',
           duration_seconds: duration,
-          max_laps: 999, // Essentially infinite for time-based heats
+          max_laps: 999,
           season_id: parseInt(id!),
           race_class: raceClass,
           droid_ids: selectedDroids
         })
       });
+    }
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      alert(errorData.detail || 'Failed to save race');
+      return;
     }
     
     setShowModal(false);

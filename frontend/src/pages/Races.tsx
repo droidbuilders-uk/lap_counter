@@ -51,7 +51,7 @@ export default function Races() {
     e.preventDefault();
     if (selectedDroids.length === 0) return alert(`Select at least one ${labels.competitor.toLowerCase()}!`);
     
-    await fetch('/api/races', {
+    const response = await fetch('/api/races', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -62,6 +62,12 @@ export default function Races() {
         droid_ids: selectedDroids
       })
     });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      alert(errorData.detail || 'Failed to create race');
+      return;
+    }
     
     setName('');
     setSelectedDroids([]);

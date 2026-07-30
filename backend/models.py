@@ -11,7 +11,7 @@ class Droid(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
-    aruco_id = Column(Integer, unique=True, index=True)
+    aruco_id = Column(Integer, index=True)
     color_hex = Column(String, default="#ffffff")
 
     laps = relationship("Lap", back_populates="droid")
