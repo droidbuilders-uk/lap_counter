@@ -533,7 +533,8 @@ def get_active_race(db: Session = Depends(get_db)):
     return {
         "race": race,
         "droids": droids,
-        "laps": laps
+        "laps": laps,
+        "server_time": datetime.utcnow()
     }
 
 @app.get("/api/races/{race_id}")

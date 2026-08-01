@@ -37,6 +37,7 @@ export default function Dashboard() {
   const [activeData, setActiveData] = useState<ActiveRaceData | null>(null);
   const [wsStatus, setWsStatus] = useState('connecting');
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [clockSkew, setClockSkew] = useState<number>(0);
   const ws = useRef<WebSocket | null>(null);
   const navigate = useNavigate();
 
@@ -44,6 +45,11 @@ export default function Dashboard() {
     try {
       const res = await fetch('/api/races/active');
       const data = await res.json();
+      if (data && data.server_time) {
+        const serverStr = data.server_time.replace(' ', 'T');
+        const serverTime = new Date(serverStr + (serverStr.endsWith('Z') ? '' : 'Z')).getTime();
+        setClockSkew(new Date().getTime() - serverTime);
+      }
       setActiveData(data || null);
     } catch {
       console.error("Failed to fetch active race");
@@ -97,7 +103,7 @@ export default function Dashboard() {
       const interval = setInterval(() => {
         const startStr = activeData.race.start_time!.replace(' ', 'T');
         const start = new Date(startStr + (startStr.endsWith('Z') ? '' : 'Z')).getTime();
-        const now = new Date().getTime();
+        const now = new Date().getTime() - clockSkew;
         const elapsedSec = Math.floor((now - start) / 1000);
         const remaining = Math.max(0, activeData.race.duration_seconds - elapsedSec);
         setTimeLeft(remaining);
