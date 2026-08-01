@@ -143,14 +143,15 @@ def sync_auto_stop_timer(race_id: int, duration_seconds: int):
 
             # Broadcast the stop
             try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-            loop.run_until_complete(manager.broadcast(json.dumps({
-                "type": "race_stopped",
-                "race_id": race_id
-            })))
+                asyncio.run_coroutine_threadsafe(
+                    manager.broadcast(json.dumps({
+                        "type": "race_stopped",
+                        "race_id": race_id
+                    })),
+                    app.state.loop
+                )
+            except Exception as e:
+                print(f"Failed to broadcast race_stopped: {e}")
     finally:
         db.close()
 

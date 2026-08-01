@@ -216,7 +216,7 @@ export default function Races() {
                     {race.start_time && (
                       <span className="flex items-center gap-1">
                         <Clock className="w-4 h-4" /> 
-                        {new Date(race.start_time + 'Z').toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        {new Date(race.start_time.replace(' ', 'T') + (race.start_time.endsWith('Z') ? '' : 'Z')).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                       </span>
                     )}
                   </div>

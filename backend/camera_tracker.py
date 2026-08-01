@@ -421,7 +421,7 @@ class CameraTracker:
             db.add(new_lap)
 
             race_finished = False
-            if race.race_type == 'laps' and lap_num >= race.duration_laps:
+            if race.race_type == 'laps' and lap_num >= race.max_laps:
                 race.status = 'finished'
                 race_finished = True
 

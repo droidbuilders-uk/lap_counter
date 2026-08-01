@@ -95,7 +95,8 @@ export default function Dashboard() {
 
     if (activeData.race.race_type === 'time' && activeData.race.start_time) {
       const interval = setInterval(() => {
-        const start = new Date(activeData.race.start_time + 'Z').getTime();
+        const startStr = activeData.race.start_time!.replace(' ', 'T');
+        const start = new Date(startStr + (startStr.endsWith('Z') ? '' : 'Z')).getTime();
         const now = new Date().getTime();
         const elapsedSec = Math.floor((now - start) / 1000);
         const remaining = Math.max(0, activeData.race.duration_seconds - elapsedSec);
